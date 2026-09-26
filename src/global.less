@@ -1,0 +1,167 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+/* ---------- Markdown 渲染 ---------- */
+.md-body {
+  line-height: 1.75;
+  word-break: break-word;
+  font-size: 14px;
+}
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4 {
+  font-weight: 600;
+  margin: 0.8em 0 0.3em;
+}
+.md-body h1 {
+  font-size: 1.3rem;
+}
+.md-body h2 {
+  font-size: 1.15rem;
+}
+.md-body h3 {
+  font-size: 1.05rem;
+}
+.md-body p {
+  margin: 0.45em 0;
+}
+.md-body ul,
+.md-body ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+.md-body li {
+  margin: 0.15em 0;
+}
+.md-body a {
+  color: #10a37f;
+  text-decoration: underline;
+}
+.md-body code {
+  background: rgba(128, 128, 128, 0.14);
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 0.9em;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.md-body pre {
+  background: rgba(128, 128, 128, 0.12);
+  padding: 10px;
+  border-radius: 10px;
+  overflow: auto;
+  font-size: 12.5px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+.md-body blockquote {
+  color: #6b7280;
+  border-left: 3px solid #d1d5db;
+  margin: 0.5em 0;
+  padding: 0.1em 1em;
+}
+.md-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 13px;
+  margin: 0.5em 0;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.md-table th,
+.md-table td {
+  padding: 7px 11px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+.md-table thead th {
+  background: rgba(128, 128, 128, 0.1);
+  font-weight: 600;
+  font-size: 12px;
+}
+.md-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* ---------- JSON 高亮 ---------- */
+.json-hl,
+.json-plain {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.json-hl .kd {
+  color: #7c3aed;
+}
+.json-hl .ks {
+  color: #0f766e;
+}
+.json-hl .kn {
+  color: #b45309;
+}
+.json-hl .kb {
+  color: #0284c7;
+}
+.dark .json-hl .kd {
+  color: #a78bfa;
+}
+.dark .json-hl .ks {
+  color: #5eead4;
+}
+.dark .json-hl .kn {
+  color: #fbbf24;
+}
+.dark .json-hl .kb {
+  color: #38bdf8;
+}
+
+/* 打字机光标 */
+.type-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: #10a37f;
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: blink 0.8s steps(2) infinite;
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.35);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.55);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
