@@ -1,0 +1,27 @@
+# =============================================================================
+# copilot web 前端构建上下文忽略清单
+# =============================================================================
+
+# 版本控制与 IDE
+.git
+.gitignore
+.github
+.idea
+.vscode
+
+# 依赖与构建产物（npm install 在镜像内完成，本地 node_modules/dist 不进上下文）
+node_modules
+dist
+.umi
+
+# 本地日志与运行期数据
+*.log
+install.log
+build.log
+dev.log
+agent-audit.jsonl
+*.jsonl
+
+# 系统杂项
+.DS_Store
+Thumbs.db
