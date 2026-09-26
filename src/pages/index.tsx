@@ -7,7 +7,6 @@ import {
   apiUrl,
   getBase,
   setBase,
-  WEB_USER_ID,
   listConversations,
   createConversation,
   deleteConversation,
@@ -529,7 +528,7 @@ export default function HomePage() {
       // 无活动会话则先创建（title 取文本前 30 字符）
       if (!convId) {
         try {
-          const conv = await createConversation(truncateTitle(prompt), tenantId || '');
+          const conv = await createConversation(truncateTitle(prompt));
           convId = conv.id;
           setActiveConvId(convId);
           setConversations((prev) => [conv, ...prev]);
@@ -571,30 +570,46 @@ export default function HomePage() {
         .filter((m) => (m.role === 'user' || m.role === 'assistant') && !!m.content)
         .slice(-20)
         .map((m) => ({ role: m.role, content: m.content }));
+      // tenant/user 由后端从 authn.Session 取，前端不再传 user_id/tenant_id/stream。
       const body = {
         prompt,
-        user_id: WEB_USER_ID,
-        tenant_id: tenantId || '',
-        stream: true,
         history,
       };
 
       try {
-        const resp = await fetch(apiUrl(`${workspacePrefix()}/task`), {
+        // 1. 创建任务（标准 POST，返回 task 含 id）
+        const createResp = await fetch(apiUrl(`${workspacePrefix()}/task`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify(body),
           signal: abortRef.current.signal,
         });
-        if (!resp.ok) {
-          const e = await resp.text();
-          appendBlock({ id: newBlockId(), kind: 'error', errorText: `HTTP ${resp.status} ${e}` });
+        if (!createResp.ok) {
+          const e = await createResp.text();
+          appendBlock({ id: newBlockId(), kind: 'error', errorText: `HTTP ${createResp.status} ${e}` });
           await persistAssistant(convIdStr, asstMsg.id);
           finish();
           return;
         }
-        if (!resp.body) throw new Error('响应无 body');
-        const stream = XStream({ readableStream: resp.body });
+        const created = await createResp.json();
+        taskIdRef.current = created.id;
+
+        // 2. 订阅 SSE 流式端点（订阅后后端启动任务，事件不丢）
+        const streamResp = await fetch(
+          apiUrl(`${workspacePrefix()}/task/${encodeURIComponent(created.id)}/stream`),
+          {
+            headers: { ...authHeaders() },
+            signal: abortRef.current.signal,
+          },
+        );
+        if (!streamResp.ok || !streamResp.body) {
+          const e = streamResp.ok ? '响应无 body' : await streamResp.text();
+          appendBlock({ id: newBlockId(), kind: 'error', errorText: `HTTP ${streamResp.status} ${e}` });
+          await persistAssistant(convIdStr, asstMsg.id);
+          finish();
+          return;
+        }
+        const stream = XStream({ readableStream: streamResp.body });
         for await (const frame of stream) {
           let ev: SSEEvent;
           try {

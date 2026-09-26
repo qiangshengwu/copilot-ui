@@ -42,24 +42,22 @@ export function apiUrl(path: string): string {
 // 历史对话 API（服务端 postgres，契约冻结）
 // 后端 decodeBody 用 DisallowUnknownFields，请求体字段名必须与契约完全一致。
 // 错误统一格式：{"error":"..."}
+// userID / tenantID 一律由后端从 authn.Session 取，请求不再携带 user_id / tenant_id。
 // ============================================================
-
-/** 当前 Web 面板用户的固定标识（与 /task 的 user_id 对齐） */
-export const WEB_USER_ID = 'web-panel';
 
 // ============================================================
 // 新路由契约：agent 路由改为 /{workspaceID}/...
 //   workspaceID = 当前选中租户 id（路径段即唯一租户来源，后端忽略 body/query 的 tenant_id）
-// 会话：/{workspaceID}/conversations[/:id][/messages]
-// 任务：/{workspaceID}/task[/approve|/:id]
+// 会话：/{workspaceID}/copilot/conversations[/:id][/messages]
+// 任务：/{workspaceID}/copilot/task[/approve|/:id][/stream]
 // ============================================================
 
-/** 当前 workspaceID 路径前缀：`/${workspaceID}` */
+/** 当前 workspaceID 下的 copilot 业务前缀：`/${workspaceID}/copilot` */
 export function workspacePrefix(): string {
-  return `/${encodeURIComponent(getCurrentTenantId())}`;
+  return `/${encodeURIComponent(getCurrentTenantId())}/copilot`;
 }
 
-/** 会话 API 前缀：`/${workspaceID}/conversations`（每次调用时按当前租户动态取值） */
+/** 会话 API 前缀：`/${workspaceID}/copilot/conversations`（每次调用时按当前租户动态取值） */
 function convPrefix(): string {
   return `${workspacePrefix()}/conversations`;
 }
@@ -109,16 +107,13 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
 /** 1. 会话列表（按 updated_at DESC） */
 export function listConversations(limit = 50, offset = 0): Promise<ConversationListResp> {
   return req<ConversationListResp>(
-    `${convPrefix()}?user_id=${encodeURIComponent(WEB_USER_ID)}&limit=${limit}&offset=${offset}`,
+    `${convPrefix()}?limit=${limit}&offset=${offset}`,
   );
 }
 
-/** 2. 新建会话（201）。tenant_id 仍传一致值（后端忽略，兼容） */
-export function createConversation(title: string, tenantId: string): Promise<Conversation> {
-  return req<Conversation>(
-    convPrefix(),
-    jsonInit('POST', { user_id: WEB_USER_ID, tenant_id: tenantId || '', title }),
-  );
+/** 2. 新建会话（201）。userID / tenantID 由后端从 session 取，请求体仅 title */
+export function createConversation(title: string): Promise<Conversation> {
+  return req<Conversation>(convPrefix(), jsonInit('POST', { title }));
 }
 
 /** 3. 取单个会话（200 / 404） */

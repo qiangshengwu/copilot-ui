@@ -11,6 +11,7 @@ import {
   XCircle,
   AlertTriangle,
   ChartLine,
+  Table2,
 } from 'lucide-react';
 import type { ChatMessage, Block } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
@@ -30,7 +31,7 @@ function ResultView({ content }: { content?: string }) {
   }, [content]);
 
   if (parsed === undefined) return <pre className="json-plain">{content}</pre>;
-  if (!parsed) return <span style={{ color: '#9ca3af', fontSize: 12 }}>(空)</span>;
+  if (!parsed) return <span style={{ color: 'var(--md-muted)', fontSize: 12 }}>(空)</span>;
 
   const items = parsed?.entities?.items;
   if (Array.isArray(items) && items.length) {
@@ -64,7 +65,7 @@ function ResultView({ content }: { content?: string }) {
     return (
       <Card size="small" variant="outlined" style={{ marginTop: 4 }}>
         <Table size="small" rowKey={(_, i) => String(i)} dataSource={items} columns={columns as never} pagination={false} />
-        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>共 {items.length} 条</div>
+        <div style={{ fontSize: 12, color: 'var(--md-muted)', marginTop: 4 }}>共 {items.length} 条</div>
       </Card>
     );
   }
@@ -92,9 +93,21 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
   }
 
   // ---------- 助手消息：把 blocks 转成 ThoughtChain items ----------
+  // 实体类工具结果（可渲染为表格）提升为始终可见卡片，不进 ThoughtChain 折叠，避免重复。
+  const isEntityResult = (b: Block) => {
+    if (b.kind !== 'tool_result' || !b.resultContent) return false;
+    try {
+      const p = JSON.parse(b.resultContent);
+      return Array.isArray(p?.entities?.items) && p.entities.items.length > 0;
+    } catch {
+      return false;
+    }
+  };
   const chainItems = msg.blocks
-    .filter((b) =>
-      ['thinking', 'tool_call', 'tool_result', 'approval_result'].includes(b.kind),
+    .filter(
+      (b) =>
+        ['thinking', 'tool_call', 'tool_result', 'approval_result'].includes(b.kind) &&
+        !(b.kind === 'tool_result' && isEntityResult(b)),
     )
     .map((b: Block) => {
       if (b.kind === 'thinking') {
@@ -150,6 +163,8 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
   const alwaysBlocks = msg.blocks.filter(
     (b) => b.kind === 'chart' || b.kind === 'approval_pending' || b.kind === 'error',
   );
+  // 实体类工具结果：始终可见的精美表格卡片（设备/实体列表等）
+  const entityBlocks = msg.blocks.filter((b) => isEntityResult(b));
 
   const answerHtml = msg.streaming
     ? renderMarkdown(msg.streamingContent || '')
@@ -172,9 +187,9 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 marginBottom: 8,
                 padding: '3px 12px',
                 borderRadius: 999,
-                border: '1px solid rgba(128,128,128,0.3)',
+                border: '1px solid var(--md-border)',
                 fontSize: 12,
-                color: '#6b7280',
+                color: 'var(--md-muted)',
               }}
             >
               {msg.phaseBusy && <span className="spin-dot" />}
@@ -196,6 +211,36 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
             />
           )}
 
+          {/* 实体类工具结果：始终可见的精美表格卡片（设备/实体列表等） */}
+          {entityBlocks.map((b) => (
+            <div
+              key={b.id}
+              style={{
+                border: '1px solid var(--card-border)',
+                borderRadius: 12,
+                marginBottom: 10,
+                padding: 10,
+                background: 'var(--card-bg)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  marginBottom: 6,
+                  color: 'var(--card-title)',
+                }}
+              >
+                <Table2 size={15} color="var(--emerald)" />
+                {b.toolName || '实体列表'}
+              </div>
+              <ResultView content={b.resultContent} />
+            </div>
+          ))}
+
           {/* 始终可见块：图表 / 待审批 / 错误 */}
           {alwaysBlocks.map((b) => {
             if (b.kind === 'chart') {
@@ -203,14 +248,14 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 <div
                   key={b.id}
                   style={{
-                    border: '1px solid rgba(16,185,129,0.35)',
+                    border: '1px solid var(--card-border)',
                     borderRadius: 12,
                     marginBottom: 10,
                     padding: 12,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
-                    <ChartLine size={15} color="#10a37f" />
+                    <ChartLine size={15} color="var(--emerald)" />
                     {b.chartTitle || '数据图表'}
                   </div>
                   {b.chartFailed || !b.chartOption ? (
@@ -245,7 +290,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                   fontSize: 13,
                   padding: '8px 12px',
                   borderRadius: 8,
-                  background: 'rgba(239,68,68,0.08)',
+                  background: 'var(--error-bg)',
                 }}
               >
                 <AlertTriangle size={14} style={{ marginTop: 2 }} />
@@ -276,7 +321,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 fontSize: 13,
                 padding: '6px 10px',
                 borderRadius: 8,
-                background: 'rgba(239,68,68,0.08)',
+                background: 'var(--error-bg)',
               }}
             >
               <AlertTriangle size={14} />

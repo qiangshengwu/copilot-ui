@@ -96,7 +96,7 @@ export async function login(
   identifier: string = DEFAULT_IDENTIFIER,
   secret: string = DEFAULT_SECRET,
 ): Promise<string> {
-  const resp = await fetch('/platform/auth/login', {
+  const resp = await fetch('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ identifier, secret, kind: 'password' }),
@@ -126,7 +126,7 @@ export async function fetchTenants(): Promise<Tenant[]> {
   if (tenantsLoading) return tenantsLoading;
   tenantsLoading = (async () => {
     await ensureLoggedIn();
-    const resp = await fetch('/platform/graphql', {
+    const resp = await fetch('/graphql', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

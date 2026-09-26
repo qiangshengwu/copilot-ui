@@ -11,11 +11,56 @@ body {
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
 }
 
+/* ---------- 主题变量：.dark 由 <html> 上的 class 驱动（antd darkAlgorithm 同步） ---------- */
+:root {
+  --md-text: #1f2937;            /* Markdown 正文 */
+  --md-muted: #6b7280;           /* 次要文字 / 徽标 */
+  --md-border: rgba(128, 128, 128, 0.25);
+  --md-head-bg: rgba(128, 128, 128, 0.1);
+  --md-zebra: rgba(0, 0, 0, 0.02);
+  --md-code-bg: rgba(128, 128, 128, 0.14);
+  --md-pre-bg: rgba(128, 128, 128, 0.12);
+  --md-quote-border: #d1d5db;
+  --emerald: #10a37f;            /* 品牌主色 */
+  --card-bg: rgba(255, 255, 255, 0.02);
+  --card-border: rgba(16, 185, 129, 0.28);
+  --card-title: #0d9488;
+  --error-bg: rgba(239, 68, 68, 0.08);
+  --page-bg: #f7f8fa;            /* 页面底色（浅色） */
+  --page-text: #1f2937;          /* 页面正文（浅色） */
+}
+.dark {
+  --md-text: #d1d5db;
+  --md-muted: #9ca3af;
+  --md-border: rgba(128, 128, 128, 0.35);
+  --md-head-bg: rgba(128, 128, 128, 0.18);
+  --md-zebra: rgba(255, 255, 255, 0.03);
+  --md-code-bg: rgba(128, 128, 128, 0.22);
+  --md-pre-bg: rgba(128, 128, 128, 0.18);
+  --md-quote-border: #4b5563;
+  --emerald: #34d399;
+  --card-bg: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(52, 211, 153, 0.35);
+  --card-title: #5eead4;
+  --error-bg: rgba(239, 68, 68, 0.14);
+  --page-bg: #141414;            /* 页面底色（暗色，与 antd darkAlgorithm 一致） */
+  --page-text: #e5e7eb;          /* 页面正文（暗色） */
+}
+
+/* ---------- 页面底色：跟随主题，避免暗色下中央聊天区/空白区残留白底 ---------- */
+html,
+body,
+#root {
+  background: var(--page-bg);
+  color: var(--page-text);
+}
+
 /* ---------- Markdown 渲染 ---------- */
 .md-body {
   line-height: 1.75;
   word-break: break-word;
   font-size: 14px;
+  color: var(--md-text);
 }
 .md-body h1,
 .md-body h2,
@@ -45,18 +90,18 @@ body {
   margin: 0.15em 0;
 }
 .md-body a {
-  color: #10a37f;
+  color: var(--emerald);
   text-decoration: underline;
 }
 .md-body code {
-  background: rgba(128, 128, 128, 0.14);
+  background: var(--md-code-bg);
   padding: 1px 5px;
   border-radius: 5px;
   font-size: 0.9em;
   font-family: ui-monospace, Consolas, monospace;
 }
 .md-body pre {
-  background: rgba(128, 128, 128, 0.12);
+  background: var(--md-pre-bg);
   padding: 10px;
   border-radius: 10px;
   overflow: auto;
@@ -64,35 +109,35 @@ body {
   font-family: ui-monospace, Consolas, monospace;
 }
 .md-body blockquote {
-  color: #6b7280;
-  border-left: 3px solid #d1d5db;
+  color: var(--md-muted);
+  border-left: 3px solid var(--md-quote-border);
   margin: 0.5em 0;
   padding: 0.1em 1em;
 }
-.md-table {
+.md-body table {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
   font-size: 13px;
   margin: 0.5em 0;
-  border: 1px solid rgba(128, 128, 128, 0.25);
+  border: 1px solid var(--md-border);
   border-radius: 10px;
   overflow: hidden;
 }
-.md-table th,
-.md-table td {
+.md-body table th,
+.md-body table td {
   padding: 7px 11px;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  border-bottom: 1px solid var(--md-border);
 }
-.md-table thead th {
-  background: rgba(128, 128, 128, 0.1);
+.md-body table thead th {
+  background: var(--md-head-bg);
   font-weight: 600;
   font-size: 12px;
 }
-.md-table tbody tr:nth-child(even) {
-  background: rgba(0, 0, 0, 0.02);
+.md-body table tbody tr:nth-child(even) {
+  background: var(--md-zebra);
 }
 
 /* ---------- JSON 高亮 ---------- */
@@ -135,7 +180,7 @@ body {
   display: inline-block;
   width: 2px;
   height: 1.1em;
-  background: #10a37f;
+  background: var(--emerald);
   vertical-align: text-bottom;
   margin-left: 1px;
   animation: blink 0.8s steps(2) infinite;
