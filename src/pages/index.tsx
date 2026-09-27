@@ -1,8 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
-import {theme as antdTheme, ConfigProvider, Splitter} from 'antd';
+import {ConfigProvider, Splitter} from 'antd';
 import {XProvider} from '@ant-design/x';
 import zhCN from 'antd/locale/zh_CN';
-import {useTheme} from '@/hooks/useTheme';
 import {useChatState} from '@/hooks/useChatState';
 import {useConversations} from '@/hooks/useConversations';
 import {useTask} from '@/hooks/useTask';
@@ -12,32 +11,24 @@ import HeaderBar from "@/components/HeaderBar";
 import MessageItem from "@/components/MessageItem";
 import Welcome from "@/components/Welcome";
 import Composer from "@/components/Composer";
+import BasePage from "@/components/BasePage";
 
 export default function HomePage() {
-    // ---------- 主题 ----------
-    const {dark, toggle: toggleTheme} = useTheme();
-
-    // ---------- 聊天渲染态 ----------
     const chat = useChatState();
 
-    // running 镜像 ref：供会话操作在任务运行中禁用（打破 useTask <-> useConversations 循环依赖）
     const runningRef = useRef(false);
 
-    // ---------- 会话列表 / 历史（租户固定，内嵌平台） ----------
     const convs = useConversations({chat, runningRef});
 
-    // ---------- 任务发送 / 停止 / 审批 ----------
     const task = useTask({chat, convs});
     useEffect(() => {
         runningRef.current = task.running;
     }, [task.running]);
 
-    // ---------- 布局状态 ----------
     const [showProcess, setShowProcess] = useState(true);
     const [autoFollow, setAutoFollow] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // 自动滚动：messages 变化或开启 follow 时贴底
     useEffect(() => {
         if (autoFollow && scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -51,144 +42,101 @@ export default function HomePage() {
         setAutoFollow(nearBottom);
     };
 
-    // 欢迎态：无活动会话且无消息
     const showWelcome = !convs.activeConvId && chat.messages.length === 0;
 
-    // 统一主题配置：ConfigProvider 为权威来源（XProvider 的 theme 透传不可靠），
-    // 保证 useToken / useEmotionCss 都读到正确的亮/暗 token。
-    const themeConfig = {
-        algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-        token: {
-            // 品牌主色：靛蓝（亮/暗两套）
-            colorPrimary: dark ? '#6366f1' : '#4f46e5',
-            borderRadius: 8,
-            // 页面布局底色：暗色用柔和深靛蓝灰（替代 antd 默认纯黑 #000），
-            // 亮色用清爽浅灰蓝。聊天主面板 body 背景跟随 colorBgLayout。
-            colorBgLayout: dark ? '#0f172a' : '#f5f7fb',
-            // 阶段语义色：推理=紫 / 工具=琥珀 / 完成=绿 / 错误=红（随主题微调亮度）
-            colorInfo: dark ? '#a78bfa' : '#7c3aed',
-            colorWarning: dark ? '#fbbf24' : '#d97706',
-            colorSuccess: dark ? '#34d399' : '#10a37f',
-            colorError: dark ? '#f87171' : '#dc2626',
-        },
-    };
-
+    // 只提供中文 locale，不再定制主题 token：组件统一 useToken 取宿主/框架 token，
+    // 深浅主题由框架层面统一调整（内嵌平台时跟随宿主）。
     return (
-        <ConfigProvider locale={zhCN} theme={themeConfig}>
-            {/* 全局基础样式须在 ConfigProvider 内层生成，否则 useEmotionCss 读到外层亮色 token */}
-            <XProvider locale={zhCN} theme={themeConfig}>
-                <PanelRoot>
-                    <Splitter style={{width: '100%', height: '100%', flex: 1}}>
-                        <Splitter.Panel defaultSize={240} min={180} max={380} collapsible={{showCollapsibleIcon: true}}>
-                            <ConversationSidebar
-                                conversations={convs.conversations}
-                                activeId={convs.activeConvId || null}
-                                running={task.running}
-                                loading={convs.convLoading}
-                                loadMore={convs.loadMore}
-                                hasMore={convs.hasMore}
-                                loadingMore={convs.loadingMore}
-                                onNew={convs.newConversation}
-                                onSelect={convs.selectConversation}
-                                onDelete={convs.deleteSidebar}
-                                onRename={convs.rename}
-                            />
-                        </Splitter.Panel>
+        <ConfigProvider locale={zhCN}>
+            <XProvider locale={zhCN}>
+                <BasePage breadcrumb={false}>
+                <Splitter style={{width: '100%', height: '100%', flex: 1}}>
+                    <Splitter.Panel defaultSize={240} min={180} max={380} collapsible={{showCollapsibleIcon: true}}>
+                        <ConversationSidebar
+                            conversations={convs.conversations}
+                            activeId={convs.activeConvId || null}
+                            running={task.running}
+                            loading={convs.convLoading}
+                            loadMore={convs.loadMore}
+                            hasMore={convs.hasMore}
+                            loadingMore={convs.loadingMore}
+                            onNew={convs.newConversation}
+                            onSelect={convs.selectConversation}
+                            onDelete={convs.deleteSidebar}
+                            onRename={convs.rename}
+                        />
+                    </Splitter.Panel>
 
-                        <Splitter.Panel>
+                    <Splitter.Panel>
+                        <div
+                            style={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                minWidth: 0,
+                                // 输入框 absolute 悬浮相对本栏定位
+                                position: 'relative',
+                            }}
+                        >
+                            <HeaderBar
+                                showProcess={showProcess}
+                                onShowProcessChange={setShowProcess}
+                                autoFollow={autoFollow}
+                                onToggleFollow={() => {
+                                    setAutoFollow(true);
+                                    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                                }}
+                                onClear={convs.deleteCurrent}
+                                autoApprove={chat.autoApprove}
+                                onDisableAutoApprove={() => chat.setAutoApprove(false)}
+                            />
+
                             <div
+                                ref={scrollRef}
+                                onScroll={onScroll}
                                 style={{
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    minWidth: 0,
-                                    // 输入框 absolute 悬浮相对本栏定位
-                                    position: 'relative',
+                                    flex: 1,
+                                    overflowY: 'auto',
+                                    // 顶部留白：HeaderBar absolute 悬浮于顶部，首条消息不被遮挡
+                                    paddingTop: 48,
+                                    // 底部留白：输入框悬浮（absolute）在其上，滚动条可滚到真正底部，
+                                    // 最后一条消息/完整底部内容不被输入框遮挡。
+                                    paddingBottom: 120,
                                 }}
                             >
-                                <HeaderBar
-                                    showProcess={showProcess}
-                                    onShowProcessChange={setShowProcess}
-                                    autoFollow={autoFollow}
-                                    onToggleFollow={() => {
-                                        setAutoFollow(true);
-                                        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-                                    }}
-                                    onClear={convs.deleteCurrent}
-                                    dark={dark}
-                                    onToggleTheme={toggleTheme}
-                                    autoApprove={chat.autoApprove}
-                                    onDisableAutoApprove={() => chat.setAutoApprove(false)}
-                                />
-
                                 <div
-                                    ref={scrollRef}
-                                    onScroll={onScroll}
                                     style={{
-                                        flex: 1,
-                                        overflowY: 'auto',
-                                        // 底部留白：输入框悬浮（absolute）在其上，滚动条可滚到真正底部，
-                                        // 最后一条消息/完整底部内容不被输入框遮挡。
-                                        paddingBottom: 120,
+                                        maxWidth: 900,
+                                        margin: '0 auto',
+                                        padding: '20px 24px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 16,
+                                        minHeight: '100%',
                                     }}
                                 >
-                                    <div
-                                        style={{
-                                            maxWidth: 900,
-                                            margin: '0 auto',
-                                            padding: '20px 24px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: 16,
-                                            minHeight: '100%',
-                                        }}
-                                    >
-                                        {showWelcome ? (
-                                            <Welcome onPick={task.send}/>
-                                        ) : (
-                                            chat.messages.map((m) => (
-                                                <MessageItem
-                                                    key={m.id}
-                                                    msg={m}
-                                                    showProcess={showProcess}
-                                                    onApprove={task.handleApprove}
-                                                    onApproveAndTrust={task.handleApproveAndTrust}
-                                                />
-                                            ))
-                                        )}
-                                    </div>
+                                    {showWelcome ? (
+                                        <Welcome onPick={task.send}/>
+                                    ) : (
+                                        chat.messages.map((m) => (
+                                            <MessageItem
+                                                key={m.id}
+                                                msg={m}
+                                                showProcess={showProcess}
+                                                onApprove={task.handleApprove}
+                                                onApproveAndTrust={task.handleApproveAndTrust}
+                                            />
+                                        ))
+                                    )}
                                 </div>
-
-                                <Composer running={task.running} onSend={task.send} onStop={task.stop}/>
                             </div>
-                        </Splitter.Panel>
-                    </Splitter>
-                </PanelRoot>
+
+                            <Composer running={task.running} onSend={task.send} onStop={task.stop}/>
+                        </div>
+                    </Splitter.Panel>
+                </Splitter>
+                </BasePage>
             </XProvider>
         </ConfigProvider>
     );
-}
-
-/**
- * 聊天主面板根容器：在 ConfigProvider 内层用 useEmotionCss 生成背景，
- * 保证 colorBgLayout（暗色 #0f172a / 亮色 #f5f7fb）真正作用于面板（emotion 全局 body 规则不可靠）。
- */
-function PanelRoot({children}: { children: React.ReactNode }) {
-    // 全局 reset：html/body/#root 撑满视口且不滚动，杜绝最外层滚动条；
-    // 滚动只发生在内容区（消息列表 scrollRef / 会话列表 Listy），符合 ChatGPT 式固定视口布局。
-    // 用 style 标签注入（一次 mount + 卸载清理），避免 HMR 累积；不引入 global.less。
-    useEffect(() => {
-        const s = document.createElement('style');
-        s.textContent = 'html,body,#root{height:100%;margin:0;padding:0;overflow:hidden}';
-        document.head.appendChild(s);
-        return () => s.remove();
-    }, []);
-    const css = useEmotionCss(({token}) => ({
-        height: '100vh',
-        display: 'flex',
-        overflow: 'hidden',
-        background: token.colorBgLayout,
-        color: token.colorText,
-    }));
-    return <div className={css}>{children}</div>;
 }

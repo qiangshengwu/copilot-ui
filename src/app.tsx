@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphqlClient } from '@/utils/graphql/client';
-import { getLogin, setLogin, setTenant, tokenExpired } from '@/utils/token';
+import { getLogin, setLogin, setTenant, tokenExpired, delLogin } from '@/utils/token';
 import {
   LoginDocument,
   type LoginInput,
@@ -30,6 +30,10 @@ export async function getInitialState(): Promise<{ tenant?: GetTenantQuery['tena
   //    否则过期 token 被一直复用会导致后续请求全部 401（表现为"创建会话失败"等）。
   let login = getLogin();
   if (!login?.token || tokenExpired(login.token)) {
+    // 登录请求不能携带（无效/过期的）旧 token：graphqlClient 会对所有请求注入
+    // Authorization: Bearer，若带上过期 token 平台直接以 `invalid token: ExpiredSignature`
+    // 拒绝，导致永远登录失败。先清掉旧 token，让 login 请求以匿名身份换取新 token。
+    delLogin();
     try {
       const res = await graphqlClient<LoginMutation, LoginMutationVariables>({
         query: LoginDocument,

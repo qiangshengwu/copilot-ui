@@ -48,8 +48,8 @@ export default function Composer({ running, onSend, onStop }: ComposerProps) {
           margin: '0 auto',
           background: token.colorBgContainer,
           border: `1px solid ${token.colorBorder}`,
-          // 左右大圆角（胶囊感）+ 降低阴影（用更弱的 boxShadowTertiary）
-          borderRadius: 24,
+          // 大圆角（更圆、更接近胶囊）+ 降低阴影（用更弱的 boxShadowTertiary）
+          borderRadius: 32,
           boxShadow: token.boxShadowTertiary,
         }}
       >
@@ -65,7 +65,7 @@ export default function Composer({ running, onSend, onStop }: ComposerProps) {
           autoSize={{ minRows: 1, maxRows: 6 }}
           prefix={<Send size={15} style={{ color: token.colorTextSecondary }} />}
           style={{
-            borderRadius: 20,
+            borderRadius: 28,
             boxShadow: running ? `0 0 0 2px ${token.colorWarningBg}` : 'none',
           }}
         />

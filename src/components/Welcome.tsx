@@ -35,6 +35,17 @@ export default function Welcome({ onPick }: WelcomeProps) {
     boxShadow: `0 0 0 6px ${token.colorPrimaryBg}, 0 10px 30px ${token.colorPrimaryBg}`,
   }));
 
+  // 让两个 Prompts 区块在换行时也整体居中：
+  // 通过官方 classNames API 设置 items 容器 justify-content center（换行胶囊居中）
+  // 与标题 textAlign center。
+  const promptsList = useEmotionCss(() => ({
+    display: 'flex',
+    justifyContent: 'center',
+  }));
+  const promptsTitle = useEmotionCss(() => ({
+    textAlign: 'center',
+  }));
+
   return (
     <div
       style={{
@@ -67,6 +78,7 @@ export default function Welcome({ onPick }: WelcomeProps) {
       </div>
 
       <Prompts
+        classNames={{ list: promptsList, title: promptsTitle }}
         title="我可以帮你"
         wrap
         items={CAPS.map((c, i) => ({ key: `c${i}`, icon: c.icon, label: c.label, disabled: true }))}
@@ -74,6 +86,7 @@ export default function Welcome({ onPick }: WelcomeProps) {
       />
 
       <Prompts
+        classNames={{ list: promptsList, title: promptsTitle }}
         title="试试："
         wrap
         items={SAMPLES.map((s) => ({ key: s.key, label: s.label }))}

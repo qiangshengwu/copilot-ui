@@ -1,4 +1,4 @@
-import { Trash2, Moon, Sun, ArrowDownToLine, ShieldCheck } from 'lucide-react';
+import { Trash2, ArrowDownToLine, ShieldCheck } from 'lucide-react';
 import { Switch, Tooltip } from 'antd';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { theme } from 'antd';
@@ -9,8 +9,6 @@ interface HeaderBarProps {
   autoFollow: boolean;
   onToggleFollow: () => void;
   onClear: () => void;
-  dark: boolean;
-  onToggleTheme: () => void;
   autoApprove: boolean;
   onDisableAutoApprove: () => void;
 }
@@ -22,8 +20,6 @@ export default function HeaderBar(props: HeaderBarProps) {
     autoFollow,
     onToggleFollow,
     onClear,
-    dark,
-    onToggleTheme,
     autoApprove,
     onDisableAutoApprove,
   } = props;
@@ -49,10 +45,14 @@ export default function HeaderBar(props: HeaderBarProps) {
     gap: 12,
     flexWrap: 'wrap',
     padding: '8px 16px',
-    borderBottom: `1px solid ${token.colorSplit}`,
-    // 顶栏直接透明、去除底色（消息区背景透出），仅保留分隔线
-    background: 'transparent',
+    // 顶栏与输入框一样 absolute 悬浮在顶部：不占文档流、无底色、无分割线，
+    // 消息区背景透出，形成无边框浮动工具条。
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     zIndex: 10,
+    background: 'transparent',
   }));
 
   // logo 已移至左侧会话栏顶部（ConversationSidebar），此处只保留功能按钮区
@@ -117,13 +117,6 @@ export default function HeaderBar(props: HeaderBarProps) {
           </button>
         </Tooltip>
       )}
-
-      {/* 主题切换 */}
-      <Tooltip title="切换深浅主题">
-        <button type="button" onClick={onToggleTheme} className={iconBtn}>
-          {dark ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
-      </Tooltip>
     </div>
   );
 }
