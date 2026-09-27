@@ -96,7 +96,16 @@ export default function HomePage() {
                         </Splitter.Panel>
 
                         <Splitter.Panel>
-                            <div style={{height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0}}>
+                            <div
+                                style={{
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    minWidth: 0,
+                                    // 输入框 absolute 悬浮相对本栏定位
+                                    position: 'relative',
+                                }}
+                            >
                                 <HeaderBar
                                     showProcess={showProcess}
                                     onShowProcessChange={setShowProcess}
@@ -112,7 +121,17 @@ export default function HomePage() {
                                     onDisableAutoApprove={() => chat.setAutoApprove(false)}
                                 />
 
-                                <div ref={scrollRef} onScroll={onScroll} style={{flex: 1, overflowY: 'auto'}}>
+                                <div
+                                    ref={scrollRef}
+                                    onScroll={onScroll}
+                                    style={{
+                                        flex: 1,
+                                        overflowY: 'auto',
+                                        // 底部留白：输入框悬浮（absolute）在其上，滚动条可滚到真正底部，
+                                        // 最后一条消息/完整底部内容不被输入框遮挡。
+                                        paddingBottom: 120,
+                                    }}
+                                >
                                     <div
                                         style={{
                                             maxWidth: 900,
@@ -155,6 +174,15 @@ export default function HomePage() {
  * 保证 colorBgLayout（暗色 #0f172a / 亮色 #f5f7fb）真正作用于面板（emotion 全局 body 规则不可靠）。
  */
 function PanelRoot({children}: { children: React.ReactNode }) {
+    // 全局 reset：html/body/#root 撑满视口且不滚动，杜绝最外层滚动条；
+    // 滚动只发生在内容区（消息列表 scrollRef / 会话列表 Listy），符合 ChatGPT 式固定视口布局。
+    // 用 style 标签注入（一次 mount + 卸载清理），避免 HMR 累积；不引入 global.less。
+    useEffect(() => {
+        const s = document.createElement('style');
+        s.textContent = 'html,body,#root{height:100%;margin:0;padding:0;overflow:hidden}';
+        document.head.appendChild(s);
+        return () => s.remove();
+    }, []);
     const css = useEmotionCss(({token}) => ({
         height: '100vh',
         display: 'flex',

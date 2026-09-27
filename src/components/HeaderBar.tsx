@@ -1,4 +1,4 @@
-import { Bot, Trash2, Moon, Sun, ArrowDownToLine, ShieldCheck } from 'lucide-react';
+import { Trash2, Moon, Sun, ArrowDownToLine, ShieldCheck } from 'lucide-react';
 import { Switch, Tooltip } from 'antd';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { theme } from 'antd';
@@ -54,26 +54,7 @@ export default function HeaderBar(props: HeaderBarProps) {
     zIndex: 10,
   }));
 
-  const logo = useEmotionCss(({ token }) => ({
-    width: 32,
-    height: 32,
-    borderRadius: token.borderRadiusLG,
-    background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-  }));
-
-  const brandTag = useEmotionCss(({ token }) => ({
-    fontSize: 10,
-    fontWeight: 500,
-    padding: '1px 6px',
-    borderRadius: token.borderRadiusSM,
-    background: token.colorPrimaryBg,
-    color: token.colorPrimary,
-  }));
-
+  // logo 已移至左侧会话栏顶部（ConversationSidebar），此处只保留功能按钮区
   const autoApproveBtn = useEmotionCss(({ token }) => ({
     border: `1px solid ${token.colorPrimaryBorder}`,
     background: token.colorPrimaryBg,
@@ -89,20 +70,6 @@ export default function HeaderBar(props: HeaderBarProps) {
 
   return (
     <div className={container}>
-      {/* Logo */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <div className={logo}>
-          <Bot size={18} />
-        </div>
-        <div style={{ lineHeight: 1.2 }}>
-          <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
-            Copilot
-            <span className={brandTag}>Agent</span>
-          </div>
-          <div style={{ fontSize: 11, color: token.colorTextSecondary }}>控制台</div>
-        </div>
-      </div>
-
       <div style={{ flex: 1 }} />
 
       {/* 过程开关 */}

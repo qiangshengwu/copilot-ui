@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Listy, Popconfirm, Spin, Tooltip, theme } from 'antd';
-import { Plus, Trash2, MessageSquare, Pencil, Check, X } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, Pencil, Check, X, Bot } from 'lucide-react';
 import type { Conversation } from '@/types';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 
@@ -119,6 +119,27 @@ export default function ConversationSidebar({
     color: token.colorTextSecondary,
   }));
 
+  // 顶部 logo 区（品牌图标 + 名称，ChatGPT 式左侧品牌区）
+  const logoBox = useEmotionCss(({ token }) => ({
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    borderRadius: token.borderRadiusLG,
+    background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+  }));
+  const brandTag = useEmotionCss(({ token }) => ({
+    fontSize: 10,
+    fontWeight: 500,
+    padding: '1px 6px',
+    borderRadius: token.borderRadiusSM,
+    background: token.colorPrimaryBg,
+    color: token.colorPrimary,
+  }));
+
   // 内联重命名状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -155,18 +176,20 @@ export default function ConversationSidebar({
     }
   };
 
-  // Listy 需要数字高度：测量滚动容器实际高度（侧栏 flex 自适应）
-  const listWrapRef = useRef<HTMLDivElement>(null);
+  // Listy 需要数字高度：精确测量列表专用容器（不含顶部"历史会话"标题与 padding），
+  // 否则高度偏大，虚拟列表最底部一项会被容器底边裁掉、显示不完整。
+  const listBoxRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(0);
   useEffect(() => {
-    const el = listWrapRef.current;
+    const el = listBoxRef.current;
     if (!el) return;
     const update = () => setListHeight(el.clientHeight);
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // 追加"加载更多"哨兵行（仅当还有更多时）
   const listItems: Array<Conversation | typeof SENTINEL> = hasMore
@@ -317,15 +340,35 @@ export default function ConversationSidebar({
         background: token.colorBgContainer,
       }}
     >
-      <div style={{ padding: 12, borderBottom: `1px solid ${token.colorSplit}` }}>
+      {/* 顶部品牌区：logo + 新建会话（新建会话位于"历史会话"上方） */}
+      <div
+        style={{
+          padding: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          borderBottom: `1px solid ${token.colorSplit}`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <div className={logoBox}>
+            <Bot size={18} />
+          </div>
+          <div style={{ lineHeight: 1.2, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+              Copilot
+              <span className={brandTag}>Agent</span>
+            </div>
+            <div style={{ fontSize: 11, color: token.colorTextSecondary }}>控制台</div>
+          </div>
+        </div>
         <Button type="primary" block icon={<Plus size={15} />} disabled={running} onClick={onNew}>
           新建会话
         </Button>
       </div>
 
       <div
-        ref={listWrapRef}
-        style={{ flex: 1, overflow: 'hidden', padding: 8, display: 'flex', flexDirection: 'column' }}
+        style={{ flex: 1, overflow: 'hidden', padding: 8, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
         <div
           style={{
@@ -354,14 +397,16 @@ export default function ConversationSidebar({
             暂无历史会话
           </div>
         ) : (
-          <Listy
-            items={listItems as Conversation[]}
-            rowKey={(item) => ('__loadMoreSentinel' in item ? '__load-more' : (item as Conversation).id)}
-            height={listHeight || 300}
-            virtual
-            itemRender={renderItem}
-            onScroll={handleScroll}
-          />
+          <div ref={listBoxRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <Listy
+              items={listItems as Conversation[]}
+              rowKey={(item) => ('__loadMoreSentinel' in item ? '__load-more' : (item as Conversation).id)}
+              height={listHeight || 300}
+              virtual
+              itemRender={renderItem}
+              onScroll={handleScroll}
+            />
+          </div>
         )}
       </div>
     </aside>
