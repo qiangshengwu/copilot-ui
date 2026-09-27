@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Button, Input, Popconfirm, Tooltip } from 'antd';
 import { Plus, Trash2, MessageSquare, Pencil, Check, X } from 'lucide-react';
 import type { Conversation } from '@/types';
+import { useEmotionCss } from '@ant-design/use-emotion-css';
+import { useToken } from '@ant-design/pro-components';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
   activeId: string | null;
   running: boolean;
-  dark: boolean;
   loading?: boolean;
   onNew: () => void;
   onSelect: (id: string) => void;
@@ -40,15 +41,64 @@ export default function ConversationSidebar({
   conversations,
   activeId,
   running,
-  dark,
   loading,
   onNew,
   onSelect,
   onDelete,
   onRename,
 }: ConversationSidebarProps) {
-  const borderColor = 'var(--border-soft)';
-  const muted = 'var(--md-muted)';
+  const { token } = useToken();
+
+  // 会话列表项：hover 底色 + active 品牌色左竖条（替代全局 .conv-item）
+  const convItem = useEmotionCss(({ token }) => ({
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 10px',
+    borderRadius: token.borderRadius,
+    cursor: 'pointer',
+    transition: 'background 150ms ease, color 150ms ease',
+    '&:hover': { background: token.colorFillSecondary },
+  }));
+  const convItemActive = useEmotionCss(({ token }) => ({
+    background: token.colorPrimaryBg,
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      width: 3,
+      height: '58%',
+      borderRadius: 999,
+      background: token.colorPrimary,
+    },
+  }));
+
+  const iconBtn = useEmotionCss(({ token }) => ({
+    flexShrink: 0,
+    padding: 4,
+    borderRadius: token.borderRadiusSM,
+    color: token.colorTextSecondary,
+    opacity: 0.7,
+    cursor: 'pointer',
+    transition: 'background 150ms ease, color 150ms ease',
+    '&:hover': { background: token.colorFillSecondary },
+  }));
+
+  // 会话列表加载占位：脉动骨架（含 keyframes，组件内提供）
+  const skLine = useEmotionCss(({ token }) => ({
+    height: 34,
+    borderRadius: token.borderRadius,
+    background: `linear-gradient(90deg, ${token.colorFillTertiary} 25%, ${token.colorFill} 37%, ${token.colorFillTertiary} 63%)`,
+    backgroundSize: '400% 100%',
+    animation: 'copilotSkPulse 1.4s ease infinite',
+    '@keyframes copilotSkPulse': {
+      '0%': { backgroundPosition: '100% 50%' },
+      '100%': { backgroundPosition: '0 50%' },
+    },
+  }));
 
   // 内联重命名状态
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -86,19 +136,12 @@ export default function ConversationSidebar({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderRight: `1px solid ${borderColor}`,
-        background: 'var(--surface-sider)',
+        borderRight: `1px solid ${token.colorSplit}`,
+        background: token.colorBgContainer,
       }}
     >
-      <div style={{ padding: 12, borderBottom: `1px solid ${borderColor}` }}>
-        <Button
-          type="primary"
-          block
-          icon={<Plus size={15} />}
-          disabled={running}
-          onClick={onNew}
-          style={{ background: running ? undefined : 'var(--emerald)' }}
-        >
+      <div style={{ padding: 12, borderBottom: `1px solid ${token.colorSplit}` }}>
+        <Button type="primary" block icon={<Plus size={15} />} disabled={running} onClick={onNew}>
           新建会话
         </Button>
       </div>
@@ -118,7 +161,7 @@ export default function ConversationSidebar({
             fontSize: 11,
             fontWeight: 600,
             letterSpacing: 0.4,
-            color: muted,
+            color: token.colorTextSecondary,
             padding: '4px 10px 6px',
             textTransform: 'uppercase',
           }}
@@ -126,13 +169,15 @@ export default function ConversationSidebar({
           历史会话
         </div>
         {loading ? (
-          <div className="conv-skeleton">
-            <div className="sk-line" />
-            <div className="sk-line" style={{ opacity: 0.7 }} />
-            <div className="sk-line" style={{ opacity: 0.5 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
+            <div className={skLine} />
+            <div className={skLine} style={{ opacity: 0.7 }} />
+            <div className={skLine} style={{ opacity: 0.5 }} />
           </div>
         ) : conversations.length === 0 ? (
-          <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: muted }}>
+          <div
+            style={{ padding: 16, textAlign: 'center', fontSize: 12, color: token.colorTextSecondary }}
+          >
             暂无历史会话
           </div>
         ) : (
@@ -146,18 +191,16 @@ export default function ConversationSidebar({
                   if (!running && !editing) onSelect(c.id);
                 }}
                 title={c.title}
-                className={`conv-item${active ? ' conv-item--active' : ''}`}
+                className={active ? `${convItem} ${convItemActive}` : convItem}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 10px',
-                  borderRadius: 'var(--radius-md)',
                   cursor: running ? 'not-allowed' : 'pointer',
                   opacity: running && !active ? 0.6 : 1,
                 }}
               >
-                <MessageSquare size={14} style={{ flexShrink: 0, color: active ? 'var(--emerald)' : muted }} />
+                <MessageSquare
+                  size={14}
+                  style={{ flexShrink: 0, color: active ? token.colorPrimary : token.colorTextSecondary }}
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {editing ? (
                     <Input
@@ -174,7 +217,7 @@ export default function ConversationSidebar({
                     <div
                       style={{
                         fontSize: 13,
-                        color: 'var(--text-primary)',
+                        color: token.colorText,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -185,7 +228,7 @@ export default function ConversationSidebar({
                     </div>
                   )}
                   {!editing && (
-                    <div style={{ fontSize: 11, color: muted, marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>
                       {formatTime(c.updated_at)}
                     </div>
                   )}
@@ -201,7 +244,7 @@ export default function ConversationSidebar({
                           e.stopPropagation();
                           void commitEdit(c.id);
                         }}
-                        style={{ flexShrink: 0, padding: 4, color: '#10a37f', cursor: 'pointer' }}
+                        style={{ flexShrink: 0, padding: 4, color: token.colorPrimary, cursor: 'pointer' }}
                       >
                         <Check size={13} />
                       </span>
@@ -214,7 +257,7 @@ export default function ConversationSidebar({
                           e.stopPropagation();
                           cancelEdit();
                         }}
-                        style={{ flexShrink: 0, padding: 4, color: muted, cursor: 'pointer' }}
+                        style={{ flexShrink: 0, padding: 4, color: token.colorTextSecondary, cursor: 'pointer' }}
                       >
                         <X size={13} />
                       </span>
@@ -227,15 +270,8 @@ export default function ConversationSidebar({
                         role="button"
                         tabIndex={-1}
                         onClick={(e) => startEdit(c, e)}
-                        className="icon-btn"
-                        style={{
-                          flexShrink: 0,
-                          padding: 4,
-                          borderRadius: 6,
-                          color: muted,
-                          opacity: 0.7,
-                          cursor: running ? 'not-allowed' : 'pointer',
-                        }}
+                        className={iconBtn}
+                        style={{ cursor: running ? 'not-allowed' : 'pointer' }}
                       >
                         <Pencil size={13} />
                       </span>
@@ -257,15 +293,8 @@ export default function ConversationSidebar({
                           role="button"
                           tabIndex={-1}
                           onClick={(e) => e.stopPropagation()}
-                          className="icon-btn"
-                          style={{
-                            flexShrink: 0,
-                            padding: 4,
-                            borderRadius: 6,
-                            color: muted,
-                            opacity: 0.7,
-                            cursor: running ? 'not-allowed' : 'pointer',
-                          }}
+                          className={iconBtn}
+                          style={{ cursor: running ? 'not-allowed' : 'pointer' }}
                         >
                           <Trash2 size={13} />
                         </span>

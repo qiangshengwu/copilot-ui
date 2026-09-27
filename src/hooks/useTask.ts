@@ -12,7 +12,6 @@ import {
   approveTask,
   cancelTask,
 } from '@/utils/api';
-import { getCurrentTenantId } from '@/utils/platform';
 import { newBlockId, newMsgId, truncateTitle, tick } from './chatUtils';
 import type { ChatState } from './useChatState';
 import type { ConversationsState } from './useConversations';
@@ -400,10 +399,6 @@ export function useTask({ chat, convs }: Options) {
       const prompt = (text || '').trim();
       if (!prompt) return;
       if (runningRef.current) return;
-      if (!getCurrentTenantId()) {
-        Modal.error({ title: '未选择租户', content: '请先在右上角选择一个租户后再发送。' });
-        return;
-      }
 
       let convId = convs.activeConvIdRef.current;
       // 无活动会话则先创建（title 取文本前 30 字符）

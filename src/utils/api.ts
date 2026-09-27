@@ -1,6 +1,4 @@
-// API 基址与请求辅助。
-// base 留空 = 同源（dev 下走 umi proxy，prod 下由后端同域托管）；
-// 非空则所有 API 前缀到该地址。记忆在 localStorage。
+// API 请求辅助。请求一律同源（dev 走 umi proxy，prod 由后端 nginx 同域反代分发）。
 
 import type {
   AppendMessageBody,
@@ -12,31 +10,9 @@ import type {
 import { getToken, setToken, login } from './platform';
 import { CURRENT_TENANT_ID } from '@/tenant';
 
-const BASE_KEY = 'copilot-base';
-
-export function getBase(): string {
-  try {
-    const b = (localStorage.getItem(BASE_KEY) || '').trim();
-    return b.replace(/\/+$/, '');
-  } catch {
-    return '';
-  }
-}
-
-export function setBase(b: string) {
-  try {
-    if (b) localStorage.setItem(BASE_KEY, b.trim());
-    else localStorage.removeItem(BASE_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-/** 拼接完整 API 地址；base 为空时返回相对路径（同源） */
+/** 拼接完整 API 地址：始终同源，返回相对路径 */
 export function apiUrl(path: string): string {
-  const b = getBase();
-  if (!b) return path;
-  return b + path;
+  return path;
 }
 
 // ============================================================

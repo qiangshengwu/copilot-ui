@@ -13,7 +13,6 @@ import {
 import type { ChatState } from './useChatState';
 
 interface Options {
-  tenantId: string;
   chat: ChatState;
   /** running 镜像 ref：会话操作在任务运行中被禁用（与原 double-booking 一致） */
   runningRef: MutableRefObject<boolean>;
@@ -30,10 +29,11 @@ function toRenderMessages(list: HistoryMessage[]): ChatMessage[] {
 }
 
 /**
- * 会话列表（useQuery，queryKey ['conversations', tenantId]）+ CRUD（useMutation，成功后 invalidate）。
+ * 会话列表（useQuery）+ CRUD（useMutation，成功后 invalidate）。
+ * 租户固定（内嵌平台），queryKey 不再携带 tenantId。
  * openConversation 仍为函数式加载（带 convLoading），行为与原实现一致。
  */
-export function useConversations({ tenantId, chat, runningRef }: Options) {
+export function useConversations({ chat, runningRef }: Options) {
   const queryClient = useQueryClient();
   const [activeConvId, setActiveConvIdState] = useState('');
   const activeConvIdRef = useRef('');
@@ -44,17 +44,15 @@ export function useConversations({ tenantId, chat, runningRef }: Options) {
 
   // ---------- 列表查询 ----------
   const listQ = useQuery<ConversationListResp>({
-    queryKey: ['conversations', tenantId],
+    queryKey: ['conversations'],
     queryFn: () => listConversations(50, 0),
-    enabled: !!tenantId,
-    // 切租户时保留上一份列表，直到新列表返回（与原 refreshConversations 行为一致）
     placeholderData: keepPreviousData,
   });
   const conversations = listQ.data?.conversations ?? [];
 
   const invalidateConversations = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['conversations', tenantId] });
-  }, [queryClient, tenantId]);
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  }, [queryClient]);
 
   // ---------- 打开会话 ----------
   const openConversation = useCallback(
@@ -74,16 +72,16 @@ export function useConversations({ tenantId, chat, runningRef }: Options) {
     [chat],
   );
 
-  // 引导：租户就绪且列表首次到达后，自动打开第一条会话（与原 boot 一致）
+  // 引导：列表首次到达后，自动打开第一条会话（与原 boot 一致）
   const bootRef = useRef(false);
   useEffect(() => {
-    if (!tenantId || bootRef.current) return;
+    if (bootRef.current) return;
     if (!listQ.data) return;
     bootRef.current = true;
     setBooted(true);
     const convs = listQ.data.conversations || [];
     if (convs.length > 0) void openConversation(convs[0].id);
-  }, [tenantId, listQ.data, openConversation]);
+  }, [listQ.data, openConversation]);
 
   // ---------- mutations ----------
   const createMut = useMutation({
@@ -174,13 +172,7 @@ export function useConversations({ tenantId, chat, runningRef }: Options) {
   /** 发送流程中创建会话后，同步激活 */
   const setActiveConvId = useCallback((id: string) => setActiveConvIdState(id), []);
 
-  /** 切换租户：清空活动会话与消息（autoApprove 保留，与原实现一致），列表由 queryKey 自动刷新 */
-  const resetOnTenant = useCallback(() => {
-    setActiveConvIdState('');
-    chat.resetMessages();
-  }, [chat]);
-
-  const convLoading = openLoading || (!booted && !!tenantId && listQ.isFetching);
+  const convLoading = openLoading || (!booted && listQ.isFetching);
 
   return {
     conversations,
@@ -194,7 +186,6 @@ export function useConversations({ tenantId, chat, runningRef }: Options) {
     rename,
     deleteCurrent,
     setActiveConvId,
-    resetOnTenant,
     invalidateConversations,
     createConversation: (title: string) => createMut.mutateAsync(title),
   };

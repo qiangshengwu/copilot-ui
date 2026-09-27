@@ -1,11 +1,7 @@
 import { Prompts } from '@ant-design/x';
-import {
-  Sparkles,
-  Building2,
-  ChartLine,
-  ShieldCheck,
-  Terminal,
-} from 'lucide-react';
+import { Sparkles, Building2, ChartLine, ShieldCheck, Terminal } from 'lucide-react';
+import { useEmotionCss } from '@ant-design/use-emotion-css';
+import { useToken } from '@ant-design/pro-components';
 
 interface WelcomeProps {
   onPick: (text: string) => void;
@@ -25,6 +21,20 @@ const SAMPLES = [
 ];
 
 export default function Welcome({ onPick }: WelcomeProps) {
+  const { token } = useToken();
+
+  const heroIcon = useEmotionCss(({ token }) => ({
+    width: 64,
+    height: 64,
+    borderRadius: token.borderRadiusLG,
+    background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    boxShadow: `0 0 0 6px ${token.colorPrimaryBg}, 0 10px 30px ${token.colorPrimaryBg}`,
+  }));
+
   return (
     <div
       style={{
@@ -39,24 +49,20 @@ export default function Welcome({ onPick }: WelcomeProps) {
         margin: 'auto',
       }}
     >
-      <div
-        style={{
-          width: 64,
-          height: 64,
-          borderRadius: 'var(--radius-lg)',
-          background: 'linear-gradient(135deg,#34d399,#0d9488)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          boxShadow:
-            '0 0 0 6px rgba(16,185,129,0.10), 0 10px 30px rgba(16,185,129,0.30)',
-        }}
-      >
+      <div className={heroIcon}>
         <Sparkles size={32} />
       </div>
-      <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>你好，我是 Copilot Agent</div>
-      <div style={{ fontSize: 13, color: 'var(--md-muted)', maxWidth: 460, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: token.colorText }}>
+        你好，我是 Copilot Agent
+      </div>
+      <div
+        style={{
+          fontSize: 13,
+          color: token.colorTextSecondary,
+          maxWidth: 460,
+          lineHeight: 1.7,
+        }}
+      >
         我可以理解你的自然语言指令，自动拆解步骤、调用平台 API 与系统工具完成任务，并实时展示推理与工具调用过程。
       </div>
 
@@ -72,10 +78,6 @@ export default function Welcome({ onPick }: WelcomeProps) {
         wrap
         items={SAMPLES.map((s) => ({ key: s.key, label: s.label }))}
         onItemClick={(info) => {
-          // antd-x Prompts 类型：onItemClick?: (info: { data: PromptProps }) => void；
-          // 运行时（es/prompts/index.js）点击触发 onItemClick({ data: item })。
-          // 这里做防御性取值：兼容 data.label / 顶层 label 两种形态，
-          // 且仅当拿到非空字符串时才 onPick，避免把 undefined/空串发给后端触发 400。
           const label =
             (info as { data?: { label?: unknown } } | undefined)?.data?.label ??
             (info as { label?: unknown } | undefined)?.label;

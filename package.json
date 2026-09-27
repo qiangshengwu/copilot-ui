@@ -10,6 +10,8 @@
     "postinstall": "umi setup"
   },
   "dependencies": {
+    "@ant-design/pro-components": "^2.8.10",
+    "@ant-design/use-emotion-css": "^1.0.4",
     "@ant-design/x": "^1.6.1",
     "@ant-design/x-sdk": "^2.9.0",
     "@emotion/css": "^11.13.5",

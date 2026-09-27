@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useToken } from '@ant-design/pro-components';
 import * as echarts from 'echarts';
 
 interface ChartBlockProps {
@@ -10,8 +11,12 @@ interface ChartBlockProps {
  * 自封装 ECharts React 组件：
  * - 自适应容器尺寸（ResizeObserver）
  * - setOption 抛错时降级为“图表渲染失败”占位
+ * - 暗色适配：经 useToken 的 theme.isDark 判断（主题由 ConfigProvider algorithm 驱动）
  */
 export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
+  const { token, theme } = useToken();
+  // antd 运行时 theme 含 isDark（类型未公开），用于选择 echarts 暗色主题
+  const isDark = (theme as { isDark?: boolean }).isDark ?? false;
   const ref = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   type EChartsInst = ReturnType<typeof echarts.init>;
@@ -21,9 +26,7 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
     if (!ref.current) return;
     let inst: echarts.ECharts | null = null;
     try {
-      // 暗色适配：<html> 上的 .dark class 与 antd darkAlgorithm 同步，暗色下用 echarts 'dark' 主题
-      const dark = document.documentElement.classList.contains('dark');
-      inst = echarts.init(ref.current, dark ? 'dark' : undefined);
+      inst = echarts.init(ref.current, isDark ? 'dark' : undefined);
       inst.setOption(option as echarts.EChartsOption);
       instRef.current = inst;
       setFailed(false);
@@ -66,7 +69,7 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
       }
       instRef.current = null;
     };
-  }, [option]);
+  }, [option, isDark]);
 
   if (failed) {
     return (
@@ -76,11 +79,11 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#ef4444',
+          color: token.colorError,
           fontSize: 12,
-          border: '1px dashed var(--md-border)',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--error-bg)',
+          border: `1px dashed ${token.colorBorderSecondary}`,
+          borderRadius: token.borderRadius,
+          background: token.colorErrorBg,
         }}
       >
         图表渲染失败

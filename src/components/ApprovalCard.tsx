@@ -1,5 +1,6 @@
-import { Card, Button, Tag, message } from 'antd';
+import { Card, Button, Tag } from 'antd';
 import { ShieldAlert, Check, X, ShieldCheck } from 'lucide-react';
+import { useToken } from '@ant-design/pro-components';
 import { highlightJson } from '@/utils/jsonHighlight';
 
 interface ApprovalCardProps {
@@ -10,32 +11,42 @@ interface ApprovalCardProps {
 }
 
 export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrust }: ApprovalCardProps) {
+  const { token } = useToken();
   return (
     <Card
       size="small"
       style={{
         marginBottom: 10,
-        borderColor: 'rgba(239,68,68,0.4)',
-        background: 'var(--error-bg)',
-        borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-sm)',
+        borderColor: token.colorErrorBorder,
+        background: token.colorErrorBg,
+        borderRadius: token.borderRadiusLG,
+        boxShadow: token.boxShadowTertiary,
       }}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-          <ShieldAlert size={15} color="#ef4444" />
+          <ShieldAlert size={15} color={token.colorError} />
           需要审批 · {tool || ''}
           <Tag color="red">danger</Tag>
         </span>
       }
     >
-      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--md-muted)', marginBottom: 6 }}>参数</div>
       <div
         style={{
-          background: 'var(--md-pre-bg)',
-          borderRadius: 'var(--radius-sm)',
+          fontSize: 12,
+          fontWeight: 500,
+          color: token.colorTextSecondary,
+          marginBottom: 6,
+        }}
+      >
+        参数
+      </div>
+      <div
+        style={{
+          background: token.colorFillQuaternary,
+          borderRadius: token.borderRadiusSM,
           padding: '8px 10px',
           marginBottom: 12,
-          border: '1px solid var(--md-border)',
+          border: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <div dangerouslySetInnerHTML={{ __html: highlightJson(params) }} />
@@ -52,9 +63,9 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
         block
         style={{
           marginTop: 8,
-          borderColor: 'var(--phase-tool)',
-          color: 'var(--phase-tool)',
-          background: 'var(--phase-tool-bg)',
+          borderColor: token.colorWarning,
+          color: token.colorWarning,
+          background: token.colorWarningBg,
           fontWeight: 500,
         }}
         icon={<ShieldCheck size={14} />}

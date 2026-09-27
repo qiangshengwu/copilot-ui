@@ -1,31 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { theme as antdTheme } from 'antd';
+import { theme as antdTheme, ConfigProvider } from 'antd';
 import { XProvider } from '@ant-design/x';
 import zhCN from 'antd/locale/zh_CN';
-import { getBase, setBase } from '@/utils/api';
-import HeaderBar from '@/components/HeaderBar';
-import MessageItem from '@/components/MessageItem';
-import Welcome from '@/components/Welcome';
-import Composer from '@/components/Composer';
-import ConversationSidebar from '@/components/ConversationSidebar';
 import { useTheme } from '@/hooks/useTheme';
-import { useTenant } from '@/hooks/useTenant';
 import { useChatState } from '@/hooks/useChatState';
 import { useConversations } from '@/hooks/useConversations';
 import { useTask } from '@/hooks/useTask';
-import '@/global.less';
+import { useEmotionCss } from '@ant-design/use-emotion-css';
+import ConversationSidebar from "@/components/ConversationSidebar";
+import HeaderBar from "@/components/HeaderBar";
+import MessageItem from "@/components/MessageItem";
+import Welcome from "@/components/Welcome";
+import Composer from "@/components/Composer";
 
 export default function HomePage() {
-  // ---------- 主题 / base ----------
+  // ---------- 主题 ----------
   const { dark, toggle: toggleTheme } = useTheme();
-  const [base, setBaseState] = useState(() => getBase());
-  const onBaseChange = (v: string) => {
-    setBaseState(v);
-    setBase(v);
-  };
-
-  // ---------- 租户 ----------
-  const { tenants, tenantId, selectTenant } = useTenant();
 
   // ---------- 聊天渲染态 ----------
   const chat = useChatState();
@@ -33,21 +23,14 @@ export default function HomePage() {
   // running 镜像 ref：供会话操作在任务运行中禁用（打破 useTask <-> useConversations 循环依赖）
   const runningRef = useRef(false);
 
-  // ---------- 会话列表 / 历史 ----------
-  const convs = useConversations({ tenantId, chat, runningRef });
+  // ---------- 会话列表 / 历史（租户固定，内嵌平台） ----------
+  const convs = useConversations({ chat, runningRef });
 
   // ---------- 任务发送 / 停止 / 审批 ----------
   const task = useTask({ chat, convs });
   useEffect(() => {
     runningRef.current = task.running;
   }, [task.running]);
-
-  // 切换租户：持久化 + 重置活动会话/消息；列表由 queryKey ['conversations', tenantId] 自动刷新
-  const handleTenantChange = (v: string) => {
-    selectTenant(v);
-    if (task.running) return;
-    convs.resetOnTenant();
-  };
 
   // ---------- 布局状态 ----------
   const [showProcess, setShowProcess] = useState(true);
@@ -71,20 +54,34 @@ export default function HomePage() {
   // 欢迎态：无活动会话且无消息
   const showWelcome = !convs.activeConvId && chat.messages.length === 0;
 
+  // 统一主题配置：ConfigProvider 为权威来源（XProvider 的 theme 透传不可靠），
+  // 保证 useToken / useEmotionCss 都读到正确的亮/暗 token。
+  const themeConfig = {
+    algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+    token: {
+      // 品牌主色：靛蓝（亮/暗两套）
+      colorPrimary: dark ? '#6366f1' : '#4f46e5',
+      borderRadius: 8,
+      // 页面布局底色：暗色用柔和深靛蓝灰（替代 antd 默认纯黑 #000），
+      // 亮色用清爽浅灰蓝。聊天主面板 body 背景跟随 colorBgLayout。
+      colorBgLayout: dark ? '#0f172a' : '#f5f7fb',
+      // 阶段语义色：推理=紫 / 工具=琥珀 / 完成=绿 / 错误=红（随主题微调亮度）
+      colorInfo: dark ? '#a78bfa' : '#7c3aed',
+      colorWarning: dark ? '#fbbf24' : '#d97706',
+      colorSuccess: dark ? '#34d399' : '#10a37f',
+      colorError: dark ? '#f87171' : '#dc2626',
+    },
+  };
+
   return (
-    <XProvider
-      locale={zhCN}
-      theme={{
-        algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-        token: { colorPrimary: '#10a37f', borderRadius: 8 },
-      }}
-    >
-      <div style={{ height: '100vh', display: 'flex', overflow: 'hidden' }}>
+    <ConfigProvider locale={zhCN} theme={themeConfig}>
+      {/* 全局基础样式须在 ConfigProvider 内层生成，否则 useEmotionCss 读到外层亮色 token */}
+      <XProvider locale={zhCN} theme={themeConfig}>
+      <PanelRoot>
         <ConversationSidebar
           conversations={convs.conversations}
           activeId={convs.activeConvId || null}
           running={task.running}
-          dark={dark}
           loading={convs.convLoading}
           onNew={convs.newConversation}
           onSelect={convs.selectConversation}
@@ -94,11 +91,6 @@ export default function HomePage() {
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <HeaderBar
-            tenants={tenants}
-            tenantId={tenantId}
-            onTenantChange={handleTenantChange}
-            base={base}
-            onBaseChange={onBaseChange}
             showProcess={showProcess}
             onShowProcessChange={setShowProcess}
             autoFollow={autoFollow}
@@ -143,7 +135,23 @@ export default function HomePage() {
 
           <Composer running={task.running} onSend={task.send} onStop={task.stop} />
         </div>
-      </div>
-    </XProvider>
+      </PanelRoot>
+      </XProvider>
+    </ConfigProvider>
   );
+}
+
+/**
+ * 聊天主面板根容器：在 ConfigProvider 内层用 useEmotionCss 生成背景，
+ * 保证 colorBgLayout（暗色 #0f172a / 亮色 #f5f7fb）真正作用于面板（emotion 全局 body 规则不可靠）。
+ */
+function PanelRoot({ children }: { children: React.ReactNode }) {
+  const css = useEmotionCss(({ token }) => ({
+    height: '100vh',
+    display: 'flex',
+    overflow: 'hidden',
+    background: token.colorBgLayout,
+    color: token.colorText,
+  }));
+  return <div className={css}>{children}</div>;
 }
