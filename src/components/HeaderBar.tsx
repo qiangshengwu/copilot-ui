@@ -30,16 +30,17 @@ export default function HeaderBar(props: HeaderBarProps) {
 
   const { token } = theme.useToken();
 
-  // 顶栏图标按钮：悬停浮现底色（替代全局 .icon-btn）
+  // 顶栏图标按钮：实体背景 + 边框（不用透明），保证在亮/暗背景下都清晰可点
   const iconBtn = useEmotionCss(({ token }) => ({
-    border: 'none',
-    background: 'transparent',
+    border: `1px solid ${token.colorBorderSecondary}`,
+    background: token.colorBgContainer,
     cursor: 'pointer',
     padding: 6,
     borderRadius: token.borderRadius,
     color: token.colorTextSecondary,
-    transition: 'background 150ms ease, color 150ms ease',
-    '&:hover': { background: token.colorFillSecondary },
+    boxShadow: token.boxShadowTertiary,
+    transition: 'background 150ms ease, color 150ms ease, border-color 150ms ease',
+    '&:hover': { background: token.colorFillSecondary, borderColor: token.colorBorder },
   }));
 
   const container = useEmotionCss(({ token }) => ({
@@ -49,8 +50,8 @@ export default function HeaderBar(props: HeaderBarProps) {
     flexWrap: 'wrap',
     padding: '8px 16px',
     borderBottom: `1px solid ${token.colorSplit}`,
-    background: token.colorBgContainer,
-    backdropFilter: 'blur(8px)',
+    // 顶栏直接透明、去除底色（消息区背景透出），仅保留分隔线
+    background: 'transparent',
     zIndex: 10,
   }));
 

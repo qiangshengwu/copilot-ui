@@ -40,8 +40,19 @@ export default function Composer({ running, onSend, onStop }: ComposerProps) {
 
   return (
     <div className={container}>
-      {/* 居中限宽，ChatGPT 式底部浮动输入卡片 */}
-      <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+      {/* 只保留聊天输入框：外层实体背景（不透明，悬浮在消息之上不透出底层），
+          无底部说明文字与额外卡片 */}
+      <div
+        style={{
+          maxWidth: 900,
+          margin: '0 auto',
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorder}`,
+          // 左右大圆角（胶囊感）+ 降低阴影（用更弱的 boxShadowTertiary）
+          borderRadius: 24,
+          boxShadow: token.boxShadowTertiary,
+        }}
+      >
         <Sender
           ref={ref as never}
           value={value}
@@ -54,22 +65,10 @@ export default function Composer({ running, onSend, onStop }: ComposerProps) {
           autoSize={{ minRows: 1, maxRows: 6 }}
           prefix={<Send size={15} style={{ color: token.colorTextSecondary }} />}
           style={{
-            borderRadius: token.borderRadiusLG,
-            boxShadow: running
-              ? `0 0 0 2px ${token.colorWarningBg}, ${token.boxShadowSecondary}`
-              : token.boxShadowSecondary,
+            borderRadius: 20,
+            boxShadow: running ? `0 0 0 2px ${token.colorWarningBg}` : 'none',
           }}
         />
-        <div
-          style={{
-            textAlign: 'center',
-            fontSize: 11,
-            color: token.colorTextSecondary,
-            marginTop: 8,
-          }}
-        >
-          Agent 可调用平台 API 查询租户 / 设备 / 告警，并读取设备时序数据做统计与图表
-        </div>
       </div>
     </div>
   );
