@@ -1,6 +1,7 @@
-import { GetTenantQuery, LoginMutation } from '@/graphql/generated/graphql';
+import { GetTenantQuery } from '@/graphql/generated/graphql';
+import type { AuthLoginResponse } from '@/services/auth';
 
-export const setLogin = (data: LoginMutation['login']) => {
+export const setLogin = (data: AuthLoginResponse) => {
   const login = JSON.stringify(data);
   return localStorage.setItem('login', login);
 };
@@ -9,7 +10,7 @@ export const delLogin = () => {
   localStorage.removeItem('login');
 };
 
-export const getLogin = (): LoginMutation['login'] | undefined => {
+export const getLogin = (): AuthLoginResponse | undefined => {
   const login = localStorage.getItem('login');
   if (login !== null) {
     return JSON.parse(login);

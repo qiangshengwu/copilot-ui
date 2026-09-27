@@ -50,8 +50,6 @@ export default defineConfig({
         '/auth/login': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
         '/graphql': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
         '/*/copilot/**': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
-        // SSE 流与任务轮询：/task/ 前缀统一由 nginx 反代（nginx 负责 rewrite 到 /copilot/task/），前端不再干预路径
-        '/*/task/**': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
         '/health': {target: TARGET, changeOrigin: true},
     },
     npmClient: 'npm',
