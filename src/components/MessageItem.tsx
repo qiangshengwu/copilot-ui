@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Bubble, ThoughtChain } from '@ant-design/x';
-import { Table, Tag, Badge, Card } from 'antd';
+import { Avatar, Table, Tag, Badge, Card, theme } from 'antd';
 import {
   User,
   Bot,
@@ -12,19 +12,20 @@ import {
   AlertTriangle,
   ChartLine,
   Table2,
+  LayoutTemplate,
   Send,
 } from 'lucide-react';
 import type { ChatMessage, Block } from '@/types';
-import { renderMarkdown } from '@/utils/markdown';
+import { XMarkdown } from '@ant-design/x-markdown';
 import { highlightJson } from '@/utils/jsonHighlight';
 import ApprovalCard from './ApprovalCard';
 import ChartBlock from './ChartBlock';
+import A2UICard, { getA2UISurfaceTitle } from './A2UICard';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { useToken } from '@ant-design/pro-components';
 
 // ---------------- 工具结果解析（实体列表 -> Table；否则 JSON） ----------------
 function ResultView({ content }: { content?: string }) {
-  const { token } = useToken();
+  const { token } = theme.useToken();
   const parsed = useMemo(() => {
     if (!content) return null;
     try {
@@ -107,7 +108,7 @@ const RISK_COLOR: Record<string, string> = { read: 'green', modify: 'orange', da
 /** phase 文案 -> 语义色/图标（纯展示层映射，不影响流程逻辑） */
 function phaseMeta(
   phase: string,
-  token: ReturnType<typeof useToken>['token'],
+  token: ReturnType<typeof theme.useToken>['token'],
 ): { color: string; bg: string; Icon: typeof Brain } {
   if (/推理|分析|思考|回答/.test(phase))
     return { color: token.colorInfo, bg: token.colorInfoBg, Icon: Brain };
@@ -128,7 +129,7 @@ interface MessageItemProps {
 }
 
 export default function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: MessageItemProps) {
-  const { token } = useToken();
+  const { token } = theme.useToken();
 
   // Markdown 渲染 / JSON 高亮 / 打字机光标 / 阶段动画样式 —— 由本组件 useEmotionCss 提供，
   // 通过全局选择器作用于 dangerouslySetInnerHTML 注入的 .md-body / .json-hl HTML。
@@ -272,16 +273,15 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
       <Bubble
         placement="end"
         content={msg.content}
-        avatar={{
-          icon: <User size={16} />,
-          style: { background: token.colorFill },
-        }}
+        avatar={<Avatar size={28} icon={<User size={16} />} style={{ background: token.colorFill }} />}
         variant="filled"
       />
     );
   }
 
-  const botAvatar = { icon: <Bot size={16} />, style: { background: token.colorPrimary } };
+  const botAvatar = (
+    <Avatar size={28} icon={<Bot size={16} />} style={{ background: token.colorPrimary }} />
+  );
 
   // ---------- 助手消息：把 blocks 转成 ThoughtChain items ----------
   // 实体类工具结果（可渲染为表格）提升为始终可见卡片，不进 ThoughtChain 折叠，避免重复。
@@ -306,7 +306,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
           key: b.id,
           icon: <Brain size={14} />,
           title: '推理过程',
-          status: (b.thinkingDone ? 'success' : 'pending') as 'success' | 'pending',
+          status: (b.thinkingDone ? 'success' : 'loading') as 'success' | 'loading',
           content: (
             <div style={{ whiteSpace: 'pre-wrap', color: token.colorInfo, fontSize: 13 }}>
               {b.thinkingText}
@@ -329,9 +329,9 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
               )}
             </span>
           ),
-          status: (b.toolStatus === 'failed' ? 'error' : b.toolStatus === 'done' ? 'success' : 'pending') as
+          status: (b.toolStatus === 'failed' ? 'error' : b.toolStatus === 'done' ? 'success' : 'loading') as
             | 'success'
-            | 'pending'
+            | 'loading'
             | 'error',
           content: <div dangerouslySetInnerHTML={{ __html: highlightJson(b.params) }} />,
         };
@@ -354,16 +354,14 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
       };
     });
 
-  // 始终可见的块（chart / approval_pending / error）
+  // 始终可见的块（chart / approval_pending / error / a2ui）
   const alwaysBlocks = msg.blocks.filter(
-    (b) => b.kind === 'chart' || b.kind === 'approval_pending' || b.kind === 'error',
+    (b) => b.kind === 'chart' || b.kind === 'approval_pending' || b.kind === 'error' || b.kind === 'a2ui',
   );
   // 实体类工具结果：始终可见的精美表格卡片（设备/实体列表等）
   const entityBlocks = msg.blocks.filter((b) => isEntityResult(b));
 
-  const answerHtml = msg.streaming
-    ? renderMarkdown(msg.streamingContent || '')
-    : renderMarkdown(msg.content || '');
+  const answerText = msg.streaming ? msg.streamingContent || '' : msg.content || '';
 
   const phase = msg.phase ? phaseMeta(msg.phase, token) : null;
 
@@ -401,12 +399,10 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
           {showProcess && chainItems.length > 0 && (
             <ThoughtChain
               items={chainItems}
-              collapsible={{
-                expandedKeys: msg.streaming
-                  ? Array.from(new Set([...openKeys, chainItems[chainItems.length - 1].key]))
-                  : openKeys,
-                onExpand: setOpenKeys,
-              }}
+              expandedKeys={msg.streaming
+                ? Array.from(new Set([...openKeys, chainItems[chainItems.length - 1].key]))
+                : openKeys}
+              onExpand={setOpenKeys}
               style={{ marginBottom: 12 }}
             />
           )}
@@ -422,7 +418,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
             </div>
           ))}
 
-          {/* 始终可见块：图表 / 待审批 / 错误 */}
+          {/* 始终可见块：图表 / 待审批 / 错误 / A2UI 结构化卡片 */}
           {alwaysBlocks.map((b) => {
             if (b.kind === 'chart') {
               return (
@@ -436,6 +432,17 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                   ) : (
                     <ChartBlock option={b.chartOption} />
                   )}
+                </div>
+              );
+            }
+            if (b.kind === 'a2ui') {
+              return (
+                <div key={b.id} className={cardClass}>
+                  <div className={cardTitle}>
+                    <LayoutTemplate size={15} color={token.colorPrimary} />
+                    {getA2UISurfaceTitle(b.a2uiCommands) || '结构化结果'}
+                  </div>
+                  <A2UICard commands={b.a2uiCommands} a2uiRaw={b.a2uiRaw} />
                 </div>
               );
             }
@@ -461,11 +468,11 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
 
           {/* 助手回答 Markdown */}
           {(msg.streaming || msg.content) && (
-            <div
+            <XMarkdown
               className="md-body"
-              dangerouslySetInnerHTML={{
-                __html: answerHtml + (msg.streaming ? '<span class="type-cursor"></span>' : ''),
-              }}
+              content={answerText}
+              openLinksInNewTab
+              streaming={msg.streaming ? { hasNextChunk: true, tail: true } : undefined}
             />
           )}
 

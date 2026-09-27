@@ -1,22 +1,69 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-// 全局唯一 QueryClient。
-// retry:false 与原手写 fetch 行为一致（失败不自动重试）；staleTime 0 保证引导/切租户时按需刷新。
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      staleTime: 0,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+import { graphqlClient } from '@/utils/graphql/client';
+import { getLogin, setLogin, setTenant } from '@/utils/token';
+import {
+  LoginDocument,
+  type LoginInput,
+  type LoginMutation,
+  type LoginMutationVariables,
+  ListTenantsDocument,
+  type ListTenantsQuery,
+  type ListTenantsQueryVariables,
+  type GetTenantQuery,
+} from '@/graphql/generated/graphql';
 
 /**
- * UmiJS 运行时 rootContainer：在最外层包裹 QueryClientProvider。
- * 与 antd 插件的 rootContainer 自动嵌套组合。
+ * 内嵌平台场景：前端负责登录与租户选择，后端用前端传入的 Bearer token 操作平台。
+ * - 登录：无有效 token 时用默认凭据调平台 GraphQL login，结果写入 utils/token 的 localStorage。
+ * - 租户：拉取租户列表，默认取第 1 条作为默认租户，托管到 initialState.tenant。
+ * 组件通过 `const { initialState } = useModel('@@initialState'); const tenantId = initialState?.tenant?.id` 获取。
  */
+const DEFAULT_CREDENTIALS: LoginInput = {
+  identifier: 'admin',
+  secret: '12345678',
+  kind: 'password',
+};
+
+export async function getInitialState(): Promise<{ tenant?: GetTenantQuery['tenant'] }> {
+  // 1) 确保登录 token
+  let login = getLogin();
+  if (!login?.token) {
+    try {
+      const res = await graphqlClient<LoginMutation, LoginMutationVariables>({
+        query: LoginDocument,
+        variables: { input: DEFAULT_CREDENTIALS },
+      });
+      login = res.login;
+      setLogin(login);
+    } catch (e) {
+      console.warn('[copilot] platform login failed:', e);
+    }
+  }
+
+  // 2) 租户列表 → 默认取第 1 条
+  let tenant: GetTenantQuery['tenant'] | undefined;
+  if (login?.token) {
+    try {
+      const res = await graphqlClient<ListTenantsQuery, ListTenantsQueryVariables>({
+        query: ListTenantsDocument,
+        variables: { limit: 10, offset: 0 },
+      });
+      tenant = res.tenants?.items?.[0];
+      if (tenant) setTenant(tenant);
+    } catch (e) {
+      console.warn('[copilot] fetch tenants failed:', e);
+    }
+  }
+
+  return { tenant };
+}
+
+// react-query 全局 Provider：会话列表无限滚动（useInfiniteQuery）等依赖此客户端。
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+});
+
 export function rootContainer(container: ReactNode) {
   return <QueryClientProvider client={queryClient}>{container}</QueryClientProvider>;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Sender } from '@ant-design/x';
 import { Send } from 'lucide-react';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { useToken } from '@ant-design/pro-components';
+import { theme } from 'antd';
 
 interface ComposerProps {
   running: boolean;
@@ -11,7 +11,7 @@ interface ComposerProps {
 }
 
 export default function Composer({ running, onSend, onStop }: ComposerProps) {
-  const { token } = useToken();
+  const { token } = theme.useToken();
   const [value, setValue] = useState('');
   const ref = useRef<{ focus: () => void } | null>(null);
 

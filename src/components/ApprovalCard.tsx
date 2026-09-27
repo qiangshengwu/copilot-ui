@@ -1,6 +1,6 @@
 import { Card, Button, Tag } from 'antd';
 import { ShieldAlert, Check, X, ShieldCheck } from 'lucide-react';
-import { useToken } from '@ant-design/pro-components';
+import { theme } from 'antd';
 import { highlightJson } from '@/utils/jsonHighlight';
 
 interface ApprovalCardProps {
@@ -11,7 +11,7 @@ interface ApprovalCardProps {
 }
 
 export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrust }: ApprovalCardProps) {
-  const { token } = useToken();
+  const { token } = theme.useToken();
   return (
     <Card
       size="small"

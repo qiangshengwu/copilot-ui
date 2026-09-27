@@ -4,25 +4,28 @@
   "private": true,
   "description": "AI 聊天控制台面板（UmiJS4 + React18 + TS + antd5），重写自 agent 内嵌 panel.html",
   "scripts": {
-    "dev": "umi dev",
-    "build": "umi build",
-    "start": "umi dev",
-    "postinstall": "umi setup"
+    "dev": "max dev",
+    "build": "max build",
+    "start": "max dev",
+    "postinstall": "max setup",
+    "openapi": "openapi-typescript ../../go/src/copilot/apidocs/openapi/copilot.yaml -o src/services/api.d.ts"
   },
   "dependencies": {
-    "@ant-design/pro-components": "^2.8.10",
     "@ant-design/use-emotion-css": "^1.0.4",
-    "@ant-design/x": "^1.6.1",
+    "@ant-design/x": "^2.9.0",
+    "@ant-design/x-card": "^2.9.0",
+    "@ant-design/x-markdown": "^2.9.0",
     "@ant-design/x-sdk": "^2.9.0",
     "@emotion/css": "^11.13.5",
     "@emotion/react": "^11.14.0",
+    "@graphql-typed-document-node/core": "^3.2.0",
     "@tanstack/react-query": "^5.104.0",
-    "ahooks": "^3.10.0",
-    "antd": "^5.22.0",
+    "antd": "^6.6.5",
     "dompurify": "^3.4.16",
     "echarts": "^5.5.1",
+    "graphql": "^16.14.2",
     "lucide-react": "^0.462.0",
-    "markdown-it": "^15.0.2",
+    "openapi-fetch": "^0.4.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -30,8 +33,9 @@
     "@types/markdown-it": "^14.2.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@umijs/max": "^4.7.20",
     "@umijs/plugins": "^4.4.0",
-    "typescript": "^5.6.3",
-    "umi": "^4.4.0"
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.6.3"
   }
 }

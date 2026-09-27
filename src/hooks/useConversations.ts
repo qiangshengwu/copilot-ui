@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { Modal } from 'antd';
-import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import type { Block, ChatMessage, ConversationListResp, HistoryMessage } from '@/types';
-import {
-  listConversations,
-  listMessages,
-  createConversation as apiCreateConversation,
-  deleteConversation as apiDeleteConversation,
-  renameConversation as apiRenameConversation,
-} from '@/utils/api';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useModel, useRequest } from '@umijs/max';
+import { copilotClient } from '@/services/clients';
+import type { Block, ChatMessage, ConversationListResp, HistoryMessage, MessageListResp } from '@/types';
 import type { ChatState } from './useChatState';
 
 interface Options {
   chat: ChatState;
-  /** running 镜像 ref：会话操作在任务运行中被禁用（与原 double-booking 一致） */
+  /** running 镜像 ref：会话操作在任务运行中被禁用 */
   runningRef: MutableRefObject<boolean>;
 }
 
@@ -29,12 +24,16 @@ function toRenderMessages(list: HistoryMessage[]): ChatMessage[] {
 }
 
 /**
- * 会话列表（useQuery）+ CRUD（useMutation，成功后 invalidate）。
- * 租户固定（内嵌平台），queryKey 不再携带 tenantId。
- * openConversation 仍为函数式加载（带 convLoading），行为与原实现一致。
+ * 会话列表 + CRUD。统一使用 copilotClient()（openapi-fetch）+ @umijs/max 的 useRequest：
+ * - 列表：useRequest 自动请求，refresh 刷新
+ * - create / rename / delete：useRequest(manual)，onSuccess 刷新列表
+ * - openConversation：函数式调用（await client）
+ * 租户 id 取自 getInitialState → initialState.tenant.id（内嵌平台默认租户）。
  */
 export function useConversations({ chat, runningRef }: Options) {
-  const queryClient = useQueryClient();
+  const { initialState } = useModel('@@initialState');
+  const tenantId = initialState?.tenant?.id as string;
+
   const [activeConvId, setActiveConvIdState] = useState('');
   const activeConvIdRef = useRef('');
   activeConvIdRef.current = activeConvId;
@@ -42,25 +41,41 @@ export function useConversations({ chat, runningRef }: Options) {
   const [openLoading, setOpenLoading] = useState(false);
   const [booted, setBooted] = useState(false);
 
-  // ---------- 列表查询 ----------
-  const listQ = useQuery<ConversationListResp>({
-    queryKey: ['conversations'],
-    queryFn: () => listConversations(50, 0),
-    placeholderData: keepPreviousData,
+  // ---------- 列表查询（无限滚动：触底加载下一页） ----------
+  const PAGE_SIZE = 50;
+  const listInf = useInfiniteQuery({
+    queryKey: ['copilot-conversations', tenantId],
+    queryFn: ({ pageParam }) =>
+      copilotClient()
+        .get('/{workspaceID}/copilot/conversations', {
+          params: { query: { limit: PAGE_SIZE, offset: pageParam }, path: { workspaceID: tenantId } },
+        })
+        .then((r) => r.data as unknown as ConversationListResp),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const lastLen = lastPage?.conversations?.length ?? 0;
+      if (lastLen < PAGE_SIZE) return undefined; // 不足一页 = 没有更多
+      return allPages.reduce((n, p) => n + (p?.conversations?.length ?? 0), 0);
+    },
   });
-  const conversations = listQ.data?.conversations ?? [];
-
-  const invalidateConversations = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['conversations'] });
-  }, [queryClient]);
+  // 累加所有已加载页
+  const conversations = listInf.data?.pages.flatMap((p) => p?.conversations ?? []) ?? [];
+  const listLoading = listInf.isLoading;
+  const refresh = listInf.refetch;
+  const loadMore = listInf.fetchNextPage;
+  const hasMore = listInf.hasNextPage;
+  const loadingMore = listInf.isFetchingNextPage;
 
   // ---------- 打开会话 ----------
   const openConversation = useCallback(
     async (id: string) => {
       setOpenLoading(true);
       try {
-        const page = await listMessages(id);
-        chat.setMessages(toRenderMessages(page.messages || []));
+        const page = await copilotClient().get('/{workspaceID}/copilot/conversations/{id}/messages', {
+          params: { path: { workspaceID: tenantId, id } },
+        });
+        const resp = page.data as unknown as MessageListResp;
+        chat.setMessages(toRenderMessages(resp?.messages || []));
         setActiveConvIdState(id);
         chat.setAutoApprove(false);
       } catch (e) {
@@ -69,41 +84,56 @@ export function useConversations({ chat, runningRef }: Options) {
         setOpenLoading(false);
       }
     },
-    [chat],
+    [chat, tenantId],
   );
 
-  // 引导：列表首次到达后，自动打开第一条会话（与原 boot 一致）
+  // 引导：列表首次到达后，自动打开第一条会话
   const bootRef = useRef(false);
   useEffect(() => {
     if (bootRef.current) return;
-    if (!listQ.data) return;
+    if (!listInf.data) return;
     bootRef.current = true;
     setBooted(true);
-    const convs = listQ.data.conversations || [];
+    const convs = listInf.data?.pages?.[0]?.conversations || [];
     if (convs.length > 0) void openConversation(convs[0].id);
-  }, [listQ.data, openConversation]);
+  }, [listInf.data, openConversation]);
 
-  // ---------- mutations ----------
-  const createMut = useMutation({
-    mutationFn: (title: string) => apiCreateConversation(title),
-    onSuccess: () => invalidateConversations(),
-  });
+  // ---------- mutations（onSuccess 刷新列表） ----------
+  const createReq = useRequest(
+    (title: string) =>
+      copilotClient().post('/{workspaceID}/copilot/conversations', {
+        params: { path: { workspaceID: tenantId } },
+        body: { title },
+      }),
+    { manual: true, onSuccess: () => refresh() },
+  );
 
-  const renameMut = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => apiRenameConversation(id, title),
-    onSuccess: () => invalidateConversations(),
-  });
+  const renameReq = useRequest(
+    ({ id, title }: { id: string; title: string }) =>
+      copilotClient().patch('/{workspaceID}/copilot/conversations/{id}', {
+        params: { path: { workspaceID: tenantId, id } },
+        body: { title },
+      }),
+    { manual: true, onSuccess: () => refresh() },
+  );
 
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => apiDeleteConversation(id),
-    onSuccess: (_data, id) => {
-      invalidateConversations();
-      if (activeConvIdRef.current === id) {
-        setActiveConvIdState('');
-        chat.resetMessages();
-      }
+  const deleteReq = useRequest(
+    (id: string) =>
+      copilotClient().del('/{workspaceID}/copilot/conversations/{id}', {
+        params: { path: { workspaceID: tenantId, id } },
+      }),
+    {
+      manual: true,
+      onSuccess: (_data: unknown, params: unknown[]) => {
+        const id = params?.[0] as string;
+        refresh();
+        if (activeConvIdRef.current === id) {
+          setActiveConvIdState('');
+          chat.resetMessages();
+        }
+      },
     },
-  });
+  );
 
   // ---------- 暴露给侧栏/顶栏的动作 ----------
   /** 新建会话：仅本地重置；服务端会话在首次发送时创建 */
@@ -126,24 +156,24 @@ export function useConversations({ chat, runningRef }: Options) {
     async (id: string) => {
       if (runningRef.current) return;
       try {
-        await deleteMut.mutateAsync(id);
+        await deleteReq.run(id);
       } catch (e) {
         console.warn('[copilot] delete conversation failed:', e);
       }
     },
-    [deleteMut, runningRef],
+    [deleteReq, runningRef],
   );
 
   const rename = useCallback(
     async (id: string, title: string) => {
       if (runningRef.current) return;
       try {
-        await renameMut.mutateAsync({ id, title });
+        await renameReq.run({ id, title });
       } catch (e) {
         console.warn('[copilot] rename conversation failed:', e);
       }
     },
-    [renameMut, runningRef],
+    [renameReq, runningRef],
   );
 
   /** 顶栏"删除当前会话"（带 Modal 确认） */
@@ -158,7 +188,7 @@ export function useConversations({ chat, runningRef }: Options) {
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          await deleteMut.mutateAsync(id);
+          await deleteReq.run(id);
         } catch (e) {
           console.warn('[copilot] delete current conversation failed:', e);
         }
@@ -167,12 +197,12 @@ export function useConversations({ chat, runningRef }: Options) {
         chat.setAutoApprove(false);
       },
     });
-  }, [chat, deleteMut]);
+  }, [chat, deleteReq]);
 
   /** 发送流程中创建会话后，同步激活 */
   const setActiveConvId = useCallback((id: string) => setActiveConvIdState(id), []);
 
-  const convLoading = openLoading || (!booted && listQ.isFetching);
+  const convLoading = openLoading || (!booted && listLoading);
 
   return {
     conversations,
@@ -186,8 +216,11 @@ export function useConversations({ chat, runningRef }: Options) {
     rename,
     deleteCurrent,
     setActiveConvId,
-    invalidateConversations,
-    createConversation: (title: string) => createMut.mutateAsync(title),
+    refresh,
+    loadMore,
+    hasMore,
+    loadingMore,
+    createConversation: (title: string) => createReq.run(title),
   };
 }
 

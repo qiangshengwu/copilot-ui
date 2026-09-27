@@ -1,15 +1,18 @@
-import { useState } from 'react';
-import { Button, Input, Popconfirm, Tooltip } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Button, Input, Listy, Popconfirm, Spin, Tooltip, theme } from 'antd';
 import { Plus, Trash2, MessageSquare, Pencil, Check, X } from 'lucide-react';
 import type { Conversation } from '@/types';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { useToken } from '@ant-design/pro-components';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
   activeId: string | null;
   running: boolean;
   loading?: boolean;
+  /** 触底加载下一页 */
+  loadMore?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
   onNew: () => void;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
@@ -37,17 +40,23 @@ function formatTime(iso: string): string {
   return `${t.getFullYear()}-${mm}-${dd}`;
 }
 
+/** Listy 数据源哨兵：追加到 items 末尾，渲染"加载更多"占位行（保持虚拟滚动一致） */
+const SENTINEL = { __loadMoreSentinel: true as const };
+
 export default function ConversationSidebar({
   conversations,
   activeId,
   running,
   loading,
+  loadMore,
+  hasMore,
+  loadingMore,
   onNew,
   onSelect,
   onDelete,
   onRename,
 }: ConversationSidebarProps) {
-  const { token } = useToken();
+  const { token } = theme.useToken();
 
   // 会话列表项：hover 底色 + active 品牌色左竖条（替代全局 .conv-item）
   const convItem = useEmotionCss(({ token }) => ({
@@ -100,6 +109,16 @@ export default function ConversationSidebar({
     },
   }));
 
+  const loadMoreRow = useEmotionCss(({ token }) => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: '10px 0',
+    fontSize: 12,
+    color: token.colorTextSecondary,
+  }));
+
   // 内联重命名状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -128,11 +147,169 @@ export default function ConversationSidebar({
     cancelEdit();
   };
 
+  // 触底加载：滚动到接近底部且还有更多时，加载下一页
+  const handleScroll: React.UIEventHandler<HTMLElement> = (e) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+      if (hasMore && !loadingMore && loadMore) loadMore();
+    }
+  };
+
+  // Listy 需要数字高度：测量滚动容器实际高度（侧栏 flex 自适应）
+  const listWrapRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(0);
+  useEffect(() => {
+    const el = listWrapRef.current;
+    if (!el) return;
+    const update = () => setListHeight(el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 追加"加载更多"哨兵行（仅当还有更多时）
+  const listItems: Array<Conversation | typeof SENTINEL> = hasMore
+    ? [...conversations, SENTINEL]
+    : conversations;
+
+  const renderItem = (item: Conversation | typeof SENTINEL) => {
+    if ('__loadMoreSentinel' in item) {
+      return (
+        <div className={loadMoreRow}>
+          {loadingMore ? <Spin size="small" /> : <span>加载更多…</span>}
+        </div>
+      );
+    }
+    const c = item as Conversation;
+    const active = c.id === activeId;
+    const editing = editingId === c.id;
+    return (
+      <div
+        onClick={() => {
+          if (!running && !editing) onSelect(c.id);
+        }}
+        title={c.title}
+        className={active ? `${convItem} ${convItemActive}` : convItem}
+        style={{
+          cursor: running ? 'not-allowed' : 'pointer',
+          opacity: running && !active ? 0.6 : 1,
+        }}
+      >
+        <MessageSquare
+          size={14}
+          style={{ flexShrink: 0, color: active ? token.colorPrimary : token.colorTextSecondary }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {editing ? (
+            <Input
+              size="small"
+              autoFocus
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onPressEnter={() => commitEdit(c.id)}
+              onBlur={() => commitEdit(c.id)}
+              style={{ fontSize: 13, padding: '0 6px', height: 26 }}
+            />
+          ) : (
+            <div
+              style={{
+                fontSize: 13,
+                color: token.colorText,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              {c.title || '未命名会话'}
+            </div>
+          )}
+          {!editing && (
+            <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>
+              {formatTime(c.updated_at)}
+            </div>
+          )}
+        </div>
+
+        {editing ? (
+          <>
+            <Tooltip title="确认重命名">
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void commitEdit(c.id);
+                }}
+                style={{ flexShrink: 0, padding: 4, color: token.colorPrimary, cursor: 'pointer' }}
+              >
+                <Check size={13} />
+              </span>
+            </Tooltip>
+            <Tooltip title="取消">
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cancelEdit();
+                }}
+                style={{ flexShrink: 0, padding: 4, color: token.colorTextSecondary, cursor: 'pointer' }}
+              >
+                <X size={13} />
+              </span>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <Tooltip title={running ? '任务运行中，暂不可重命名' : '重命名会话'}>
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={(e) => startEdit(c, e)}
+                className={iconBtn}
+                style={{ cursor: running ? 'not-allowed' : 'pointer' }}
+              >
+                <Pencil size={13} />
+              </span>
+            </Tooltip>
+            <Popconfirm
+              title="删除该会话？"
+              description="会话及其全部消息将被删除，不可恢复。"
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              disabled={running}
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                onDelete(c.id);
+              }}
+            >
+              <Tooltip title={running ? '任务运行中，暂不可删除' : '删除会话'}>
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(e) => e.stopPropagation()}
+                  className={iconBtn}
+                  style={{ cursor: running ? 'not-allowed' : 'pointer' }}
+                >
+                  <Trash2 size={13} />
+                </span>
+              </Tooltip>
+            </Popconfirm>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <aside
       style={{
-        width: 240,
-        flexShrink: 0,
+        width: '100%',
+        minWidth: 0,
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -147,14 +324,8 @@ export default function ConversationSidebar({
       </div>
 
       <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-        }}
+        ref={listWrapRef}
+        style={{ flex: 1, overflow: 'hidden', padding: 8, display: 'flex', flexDirection: 'column' }}
       >
         <div
           style={{
@@ -164,147 +335,33 @@ export default function ConversationSidebar({
             color: token.colorTextSecondary,
             padding: '4px 10px 6px',
             textTransform: 'uppercase',
+            flexShrink: 0,
           }}
         >
           历史会话
         </div>
+
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 8 }}>
             <div className={skLine} />
             <div className={skLine} style={{ opacity: 0.7 }} />
             <div className={skLine} style={{ opacity: 0.5 }} />
           </div>
-        ) : conversations.length === 0 ? (
+        ) : conversations.length === 0 && !hasMore ? (
           <div
             style={{ padding: 16, textAlign: 'center', fontSize: 12, color: token.colorTextSecondary }}
           >
             暂无历史会话
           </div>
         ) : (
-          conversations.map((c) => {
-            const active = c.id === activeId;
-            const editing = editingId === c.id;
-            return (
-              <div
-                key={c.id}
-                onClick={() => {
-                  if (!running && !editing) onSelect(c.id);
-                }}
-                title={c.title}
-                className={active ? `${convItem} ${convItemActive}` : convItem}
-                style={{
-                  cursor: running ? 'not-allowed' : 'pointer',
-                  opacity: running && !active ? 0.6 : 1,
-                }}
-              >
-                <MessageSquare
-                  size={14}
-                  style={{ flexShrink: 0, color: active ? token.colorPrimary : token.colorTextSecondary }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {editing ? (
-                    <Input
-                      size="small"
-                      autoFocus
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onPressEnter={() => commitEdit(c.id)}
-                      onBlur={() => commitEdit(c.id)}
-                      style={{ fontSize: 13, padding: '0 6px', height: 26 }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: token.colorText,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontWeight: active ? 600 : 400,
-                      }}
-                    >
-                      {c.title || '未命名会话'}
-                    </div>
-                  )}
-                  {!editing && (
-                    <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>
-                      {formatTime(c.updated_at)}
-                    </div>
-                  )}
-                </div>
-
-                {editing ? (
-                  <>
-                    <Tooltip title="确认重命名">
-                      <span
-                        role="button"
-                        tabIndex={-1}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void commitEdit(c.id);
-                        }}
-                        style={{ flexShrink: 0, padding: 4, color: token.colorPrimary, cursor: 'pointer' }}
-                      >
-                        <Check size={13} />
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="取消">
-                      <span
-                        role="button"
-                        tabIndex={-1}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cancelEdit();
-                        }}
-                        style={{ flexShrink: 0, padding: 4, color: token.colorTextSecondary, cursor: 'pointer' }}
-                      >
-                        <X size={13} />
-                      </span>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <>
-                    <Tooltip title={running ? '任务运行中，暂不可重命名' : '重命名会话'}>
-                      <span
-                        role="button"
-                        tabIndex={-1}
-                        onClick={(e) => startEdit(c, e)}
-                        className={iconBtn}
-                        style={{ cursor: running ? 'not-allowed' : 'pointer' }}
-                      >
-                        <Pencil size={13} />
-                      </span>
-                    </Tooltip>
-                    <Popconfirm
-                      title="删除该会话？"
-                      description="会话及其全部消息将被删除，不可恢复。"
-                      okText="删除"
-                      cancelText="取消"
-                      okButtonProps={{ danger: true }}
-                      disabled={running}
-                      onConfirm={(e) => {
-                        e?.stopPropagation();
-                        onDelete(c.id);
-                      }}
-                    >
-                      <Tooltip title={running ? '任务运行中，暂不可删除' : '删除会话'}>
-                        <span
-                          role="button"
-                          tabIndex={-1}
-                          onClick={(e) => e.stopPropagation()}
-                          className={iconBtn}
-                          style={{ cursor: running ? 'not-allowed' : 'pointer' }}
-                        >
-                          <Trash2 size={13} />
-                        </span>
-                      </Tooltip>
-                    </Popconfirm>
-                  </>
-                )}
-              </div>
-            );
-          })
+          <Listy
+            items={listItems as Conversation[]}
+            rowKey={(item) => ('__loadMoreSentinel' in item ? '__load-more' : (item as Conversation).id)}
+            height={listHeight || 300}
+            virtual
+            itemRender={renderItem}
+            onScroll={handleScroll}
+          />
         )}
       </div>
     </aside>

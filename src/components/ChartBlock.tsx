@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useToken } from '@ant-design/pro-components';
+import { theme } from 'antd';
 import * as echarts from 'echarts';
 
 interface ChartBlockProps {
@@ -7,16 +7,31 @@ interface ChartBlockProps {
   height?: number;
 }
 
+/** 相对亮度（0~1），用于从 token 判断当前暗色态 */
+function luminance(color: string): number {
+  try {
+    let hex = color.replace('#', '').trim();
+    if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+    if (hex.length !== 6) return 1;
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  } catch {
+    return 1;
+  }
+}
+
 /**
  * 自封装 ECharts React 组件：
  * - 自适应容器尺寸（ResizeObserver）
  * - setOption 抛错时降级为“图表渲染失败”占位
- * - 暗色适配：经 useToken 的 theme.isDark 判断（主题由 ConfigProvider algorithm 驱动）
+ * - 暗色适配：经 theme.useToken() 的 colorBgLayout 亮度判断（主题由 ConfigProvider algorithm 驱动）
  */
 export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
-  const { token, theme } = useToken();
-  // antd 运行时 theme 含 isDark（类型未公开），用于选择 echarts 暗色主题
-  const isDark = (theme as { isDark?: boolean }).isDark ?? false;
+  const { token } = theme.useToken();
+  // antd useToken 不暴露 isDark，用布局背景亮度近似判断，用于选择 echarts 暗色主题
+  const isDark = luminance(token.colorBgLayout) < 0.5;
   const ref = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   type EChartsInst = ReturnType<typeof echarts.init>;

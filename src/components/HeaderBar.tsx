@@ -1,7 +1,7 @@
 import { Bot, Trash2, Moon, Sun, ArrowDownToLine, ShieldCheck } from 'lucide-react';
 import { Switch, Tooltip } from 'antd';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { useToken } from '@ant-design/pro-components';
+import { theme } from 'antd';
 
 interface HeaderBarProps {
   showProcess: boolean;
@@ -28,7 +28,7 @@ export default function HeaderBar(props: HeaderBarProps) {
     onDisableAutoApprove,
   } = props;
 
-  const { token } = useToken();
+  const { token } = theme.useToken();
 
   // 顶栏图标按钮：悬停浮现底色（替代全局 .icon-btn）
   const iconBtn = useEmotionCss(({ token }) => ({

@@ -1,7 +1,7 @@
 import { Prompts } from '@ant-design/x';
 import { Sparkles, Building2, ChartLine, ShieldCheck, Terminal } from 'lucide-react';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { useToken } from '@ant-design/pro-components';
+import { theme } from 'antd';
 
 interface WelcomeProps {
   onPick: (text: string) => void;
@@ -21,7 +21,7 @@ const SAMPLES = [
 ];
 
 export default function Welcome({ onPick }: WelcomeProps) {
-  const { token } = useToken();
+  const { token } = theme.useToken();
 
   const heroIcon = useEmotionCss(({ token }) => ({
     width: 64,

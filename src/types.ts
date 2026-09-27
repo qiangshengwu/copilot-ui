@@ -9,7 +9,8 @@ export type StepType =
   | 'tool_call'
   | 'tool_result'
   | 'final'
-  | 'approval';
+  | 'approval'
+  | 'a2ui';
 
 /** step / approval 事件的 data 载荷（字段较杂，宽松定义） */
 export interface StepData {
@@ -30,6 +31,53 @@ export interface StepData {
   title?: string;
   [k: string]: unknown;
 }
+
+// ---------------- A2UI（动态卡片）命令协议 ----------------
+// 后端 SSE step 事件 data.type==='a2ui' 时，data.content 为 JSON 数组字符串，
+// 元素为以下四种命令之一。前端解析后用 @ant-design/x-card 的 XCard.Box 渲染。
+
+/** A2UI 组件类型（节点 type 字段） */
+export type A2UIComponentType = 'Text' | 'Table' | 'Chart' | 'Statistic';
+
+/** createSurface：声明一个 surface */
+export interface A2UICreateSurfaceCmd {
+  type: 'createSurface';
+  surface: { id: string; title?: string };
+}
+
+/** updateComponents 命令中的单个节点（nodeId -> 节点定义） */
+export interface A2UIComponentNode {
+  type: string;
+  props: Record<string, unknown>;
+}
+
+/** updateComponents：向 surface 写入组件树（map：nodeId -> 节点） */
+export interface A2UIUpdateComponentsCmd {
+  type: 'updateComponents';
+  surfaceId: string;
+  components: Record<string, A2UIComponentNode>;
+}
+
+/** updateDataModel：写入 surface 的数据模型（路径绑定用） */
+export interface A2UIUpdateDataModelCmd {
+  type: 'updateDataModel';
+  surfaceId: string;
+  path: string;
+  value: unknown;
+}
+
+/** deleteSurface：销毁 surface（单条消息通常用不到，兜底实现） */
+export interface A2UIDeleteSurfaceCmd {
+  type: 'deleteSurface';
+  surfaceId: string;
+}
+
+/** A2UI 命令联合（SSE content JSON.parse 后的元素） */
+export type A2UICommand =
+  | A2UICreateSurfaceCmd
+  | A2UIUpdateComponentsCmd
+  | A2UIUpdateDataModelCmd
+  | A2UIDeleteSurfaceCmd;
 
 /** 一条 SSE 事件（data: 前缀后的 JSON 反序列化结果） */
 export interface SSEEvent {
@@ -78,6 +126,7 @@ export type BlockKind =
   | 'chart'
   | 'approval_pending'
   | 'approval_result'
+  | 'a2ui'
   | 'error';
 
 export interface Block {
@@ -101,6 +150,10 @@ export interface Block {
   approved?: boolean;
   /** error */
   errorText?: string;
+  /** a2ui：解析后的命令数组（用于 XCard.Box 渲染） */
+  a2uiCommands?: A2UICommand[];
+  /** a2ui：原始 JSON 字符串（渲染失败兜底展示） */
+  a2uiRaw?: string;
 }
 
 export interface ChatMessage {
