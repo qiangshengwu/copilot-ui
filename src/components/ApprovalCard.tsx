@@ -2,6 +2,7 @@ import { Card, Button, Tag } from 'antd';
 import { ShieldAlert, Check, X, ShieldCheck } from 'lucide-react';
 import { theme } from 'antd';
 import JsonView from './JsonView';
+import { useIntl } from '@umijs/max';
 
 interface ApprovalCardProps {
   tool?: string;
@@ -12,6 +13,8 @@ interface ApprovalCardProps {
 
 export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrust }: ApprovalCardProps) {
   const { token } = theme.useToken();
+  const intl = useIntl();
+  const fm = (id: string) => intl.formatMessage({ id });
   return (
     <Card
       size="small"
@@ -25,7 +28,7 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
           <ShieldAlert size={15} color={token.colorError} />
-          需要审批 · {tool || ''}
+          {intl.formatMessage({ id: 'copilot.msg.approval' }, { tool: tool || '' })}
           <Tag color="red">danger</Tag>
         </span>
       }
@@ -38,15 +41,15 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
           marginBottom: 6,
         }}
       >
-        参数
+        {fm('copilot.msg.params')}
       </div>
       <JsonView value={params} />
       <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
         <Button type="primary" danger block icon={<Check size={14} />} onClick={() => onApprove(true)}>
-          批准
+          {fm('copilot.msg.approve')}
         </Button>
         <Button block icon={<X size={14} />} onClick={() => onApprove(false)}>
-          拒绝
+          {fm('copilot.msg.reject')}
         </Button>
       </div>
       <Button
@@ -63,7 +66,7 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
           onApproveAndTrust();
         }}
       >
-        批准并信任本对话后续所有操作（有风险）
+        {fm('copilot.msg.approve.and.trust')}
       </Button>
     </Card>
   );

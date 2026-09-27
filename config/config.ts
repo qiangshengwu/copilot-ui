@@ -36,6 +36,13 @@ export default defineConfig({
     model: {},
     // initialState 插件：认领 app.tsx 的 getInitialState（登录 + 默认租户初始化）
     initialState: {},
+    // 国际化：默认中文，antd:true 同步 antd 组件语言；baseNavigator 关闭（由平台内嵌决定语言）
+    locale: {
+        default: 'zh-CN',
+        antd: true,
+        baseNavigator: false,
+        useLocalStorage: true,
+    },
     routes: [
         {path: '/', component: 'index'},
     ],

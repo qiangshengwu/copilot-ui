@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef} from 'react';
 import type {MutableRefObject} from 'react';
 import {Modal} from 'antd';
-import {useModel, useRequest} from '@umijs/max';
+import {useModel, useRequest, getLocale} from '@umijs/max';
 import {copilotClient} from '@/services/clients';
 import {XStream} from '@ant-design/x-sdk';
 import type {SSEEvent} from '@/types';
@@ -9,6 +9,10 @@ import {newBlockId, newMsgId, truncateTitle, tick} from './chatUtils';
 import type {ChatState} from './useChatState';
 import type {ConversationsState} from './useConversations';
 import {getLogin} from "@/utils/token";
+
+/** 中英切换辅助：用于 hooks 内的静态弹窗/提示文案（组件内统一用 useIntl） */
+const zhNow = () => getLocale().toLowerCase().startsWith('zh');
+const T = (zh: string, en: string) => (zhNow() ? zh : en);
 
 interface Options {
     chat: ChatState;
@@ -68,11 +72,13 @@ export function useTask({chat, convs}: Options) {
 
     const handleApproveAndTrust = useCallback(() => {
         Modal.confirm({
-            title: '开启本对话一键批准？',
-            content:
+            title: T('开启本对话一键批准？', 'Enable one-click approval for this chat?'),
+            content: T(
                 '开启后，本对话内所有后续写操作 / 删除操作将被自动批准并立即执行，可能造成不可恢复的数据变更。是否确认开启？',
-            okText: '确认开启',
-            cancelText: '取消',
+                'Once enabled, all future write / delete operations in this chat will be approved and executed automatically, which may cause irreversible data changes. Confirm?',
+            ),
+            okText: T('确认开启', 'Enable'),
+            cancelText: T('取消', 'Cancel'),
             okButtonProps: {danger: true},
             onOk: () => {
                 chat.setAutoApprove(true);
@@ -301,7 +307,7 @@ export function useTask({chat, convs}: Options) {
                 chat.appendBlock({
                     id: newBlockId(),
                     kind: 'error',
-                    errorText: ev.error || (d.error as string) || '未知错误',
+                    errorText: ev.error || (d.error as string) || T('未知错误', 'Unknown error'),
                 });
                 chat.updateCur((m) => ({...m, phase: undefined, phaseBusy: false, streaming: false}));
                 chat.finishedRef.current = true;
@@ -405,7 +411,7 @@ export function useTask({chat, convs}: Options) {
                     chat.appendBlock({
                         id: newBlockId(),
                         kind: 'error',
-                        errorText: j.error || '任务失败',
+                        errorText: j.error || T('任务失败', 'Task failed'),
                     });
                     chat.updateCur((m) => ({...m, phase: undefined, phaseBusy: false, streaming: false}));
                     break;
@@ -443,8 +449,8 @@ export function useTask({chat, convs}: Options) {
                     convs.setActiveConvId(convId);
                 } catch (e) {
                     Modal.error({
-                        title: '创建会话失败',
-                        content: `无法创建历史会话：${(e as Error).message}`,
+                        title: T('创建会话失败', 'Failed to create conversation'),
+                        content: T(`无法创建历史会话：${(e as Error).message}`, `Failed to create history conversation: ${(e as Error).message}`),
                     });
                     return;
                 }
@@ -496,7 +502,7 @@ export function useTask({chat, convs}: Options) {
                     chat.appendBlock({
                         id: newBlockId(),
                         kind: 'error',
-                        errorText: `创建任务失败: ${(created.error as Error)?.message ?? '未知错误'}`,
+                        errorText: `${T('创建任务失败', 'Failed to create task')}: ${(created.error as Error)?.message ?? T('未知错误', 'Unknown error')}`,
                     });
                     await persistAssistant(convIdStr, asstMsg.id);
                     finish();
@@ -555,7 +561,7 @@ export function useTask({chat, convs}: Options) {
                 const byWatchdog = abortByWatchdogRef.current;
                 if (e.name !== 'AbortError') {
                     // 真实网络/解析错误：错误块 + 落库当前片段
-                    chat.appendBlock({id: newBlockId(), kind: 'error', errorText: e.message || '请求失败'});
+                    chat.appendBlock({id: newBlockId(), kind: 'error', errorText: e.message || T('请求失败', 'Request failed')});
                     await persistAssistant(convIdStr, asstMsg.id);
                 } else if (!byWatchdog) {
                     // 用户主动 stop()：不落错误块，落库当前片段（既有行为）

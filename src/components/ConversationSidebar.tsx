@@ -3,6 +3,7 @@ import { Button, Input, Listy, Popconfirm, Spin, Tooltip, theme } from 'antd';
 import { Plus, Trash2, MessageSquare, Pencil, Check, X, Bot } from 'lucide-react';
 import type { Conversation } from '@/types';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
+import { useIntl } from '@umijs/max';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
@@ -20,7 +21,7 @@ interface ConversationSidebarProps {
 }
 
 /** 相对/绝对时间：今天显示 x分钟前/小时前，今年显示 MM-DD，跨年显示 YYYY-MM-DD */
-function formatTime(iso: string): string {
+function formatTime(iso: string, intl: ReturnType<typeof useIntl>): string {
   if (!iso) return '';
   const t = new Date(iso);
   if (Number.isNaN(t.getTime())) return '';
@@ -31,8 +32,8 @@ function formatTime(iso: string): string {
     t.getDate() === now.getDate();
   if (sameDay) {
     const diffMin = Math.max(1, Math.round((now.getTime() - t.getTime()) / 60000));
-    if (diffMin < 60) return `${diffMin}分钟前`;
-    return `${Math.round(diffMin / 60)}小时前`;
+    if (diffMin < 60) return intl.formatMessage({ id: 'copilot.time.min.ago' }, { n: diffMin });
+    return intl.formatMessage({ id: 'copilot.time.hour.ago' }, { n: Math.round(diffMin / 60) });
   }
   const mm = String(t.getMonth() + 1).padStart(2, '0');
   const dd = String(t.getDate()).padStart(2, '0');
@@ -57,6 +58,8 @@ export default function ConversationSidebar({
   onRename,
 }: ConversationSidebarProps) {
   const { token } = theme.useToken();
+  const intl = useIntl();
+  const fm = (id: string) => intl.formatMessage({ id });
 
   // 会话列表项：hover 底色 + active 品牌色左竖条（替代全局 .conv-item）
   const convItem = useEmotionCss(({ token }) => ({
@@ -200,7 +203,7 @@ export default function ConversationSidebar({
     if ('__loadMoreSentinel' in item) {
       return (
         <div className={loadMoreRow}>
-          {loadingMore ? <Spin size="small" /> : <span>加载更多…</span>}
+          {loadingMore ? <Spin size="small" /> : <span>{fm('copilot.conversation.load.more')}</span>}
         </div>
       );
     }
@@ -246,19 +249,19 @@ export default function ConversationSidebar({
                 fontWeight: active ? 600 : 400,
               }}
             >
-              {c.title || '未命名会话'}
+              {c.title || fm('copilot.conversation.untitled')}
             </div>
           )}
           {!editing && (
             <div style={{ fontSize: 11, color: token.colorTextSecondary, marginTop: 2 }}>
-              {formatTime(c.updated_at)}
+              {formatTime(c.updated_at, intl)}
             </div>
           )}
         </div>
 
         {editing ? (
           <>
-            <Tooltip title="确认重命名">
+            <Tooltip title={fm('copilot.conversation.rename.confirm')}>
               <span
                 role="button"
                 tabIndex={-1}
@@ -271,7 +274,7 @@ export default function ConversationSidebar({
                 <Check size={13} />
               </span>
             </Tooltip>
-            <Tooltip title="取消">
+            <Tooltip title={fm('copilot.common.cancel')}>
               <span
                 role="button"
                 tabIndex={-1}
@@ -287,7 +290,7 @@ export default function ConversationSidebar({
           </>
         ) : (
           <>
-            <Tooltip title={running ? '任务运行中，暂不可重命名' : '重命名会话'}>
+            <Tooltip title={running ? fm('copilot.common.running.rename') : fm('copilot.conversation.rename')}>
               <span
                 role="button"
                 tabIndex={-1}
@@ -299,10 +302,10 @@ export default function ConversationSidebar({
               </span>
             </Tooltip>
             <Popconfirm
-              title="删除该会话？"
-              description="会话及其全部消息将被删除，不可恢复。"
-              okText="删除"
-              cancelText="取消"
+              title={fm('copilot.conversation.delete.title')}
+              description={fm('copilot.conversation.delete.desc')}
+              okText={fm('copilot.common.delete')}
+              cancelText={fm('copilot.common.cancel')}
               okButtonProps={{ danger: true }}
               disabled={running}
               onConfirm={(e) => {
@@ -310,7 +313,7 @@ export default function ConversationSidebar({
                 onDelete(c.id);
               }}
             >
-              <Tooltip title={running ? '任务运行中，暂不可删除' : '删除会话'}>
+              <Tooltip title={running ? fm('copilot.common.running.delete') : fm('copilot.conversation.delete')}>
                 <span
                   role="button"
                   tabIndex={-1}
@@ -336,6 +339,7 @@ export default function ConversationSidebar({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        overflowX: 'hidden',
         borderRight: `1px solid ${token.colorSplit}`,
         background: token.colorBgContainer,
       }}
@@ -359,11 +363,11 @@ export default function ConversationSidebar({
               Copilot
               <span className={brandTag}>Agent</span>
             </div>
-            <div style={{ fontSize: 11, color: token.colorTextSecondary }}>控制台</div>
+            <div style={{ fontSize: 11, color: token.colorTextSecondary }}>{fm('copilot.app.console')}</div>
           </div>
         </div>
         <Button type="primary" block icon={<Plus size={15} />} disabled={running} onClick={onNew}>
-          新建会话
+          {fm('copilot.conversation.new')}
         </Button>
       </div>
 
@@ -381,7 +385,7 @@ export default function ConversationSidebar({
             flexShrink: 0,
           }}
         >
-          历史会话
+          {fm('copilot.history.title')}
         </div>
 
         {loading ? (
@@ -394,7 +398,7 @@ export default function ConversationSidebar({
           <div
             style={{ padding: 16, textAlign: 'center', fontSize: 12, color: token.colorTextSecondary }}
           >
-            暂无历史会话
+            {fm('copilot.history.empty')}
           </div>
         ) : (
           <div ref={listBoxRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -405,6 +409,7 @@ export default function ConversationSidebar({
               virtual
               itemRender={renderItem}
               onScroll={handleScroll}
+              style={{ overflowX: 'hidden' }}
             />
           </div>
         )}

@@ -1,10 +1,15 @@
 import { getLogin, delLogin } from '@/utils/token';
 import { message } from 'antd';
+import { getLocale } from '@umijs/max';
 
 const originalFetch = window.fetch;
 
+/** 中英切换辅助：静态错误提示文案 */
+const zhNow = () => getLocale().toLowerCase().startsWith('zh');
+const T = (zh: string, en: string) => (zhNow() ? zh : en);
+
 if (!originalFetch) {
-  throw new Error('当前环境不支持 fetch，请使用 polyfill');
+  throw new Error(T('当前环境不支持 fetch，请使用 polyfill', 'fetch is not supported in this environment, please use a polyfill'));
 }
 
 class FetchError extends Error {
@@ -56,19 +61,19 @@ export const interceptorFetch = async (...args: any[]) => {
         sessionStorage.setItem('copilot_auth_reloading', '1');
         window.location.reload();
       }
-      throw new FetchError(401, '未登录或登录已过期', response);
+      throw new FetchError(401, T('未登录或登录已过期', 'Not logged in or session expired'), response);
     }
 
     if (response.status === 403) {
-      message.error('没有权限访问该资源');
+      message.error(T('没有权限访问该资源', 'You do not have permission to access this resource'));
     }
 
     if (response.status === 409) {
-      message.error('请求冲突');
+      message.error(T('请求冲突', 'Request conflict'));
     }
 
     if (!response.ok) {
-      throw new FetchError(response.status, response.statusText || '请求失败', response);
+      throw new FetchError(response.status, response.statusText || T('请求失败', 'Request failed'), response);
     }
 
     return response;
@@ -77,7 +82,7 @@ export const interceptorFetch = async (...args: any[]) => {
 
     // 只在非自定义错误时提示
     if (!(error instanceof FetchError)) {
-      message.error('网络异常，请稍后重试');
+      message.error(T('网络异常，请稍后重试', 'Network error, please try again later'));
     }
 
     throw error;

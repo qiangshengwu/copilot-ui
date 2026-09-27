@@ -2,6 +2,7 @@ import { Trash2, ArrowDownToLine, ShieldCheck } from 'lucide-react';
 import { Switch, Tooltip } from 'antd';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { theme } from 'antd';
+import { useIntl } from '@umijs/max';
 
 interface HeaderBarProps {
   showProcess: boolean;
@@ -25,13 +26,20 @@ export default function HeaderBar(props: HeaderBarProps) {
   } = props;
 
   const { token } = theme.useToken();
+  const intl = useIntl();
+  const fm = (id: string) => intl.formatMessage({ id });
 
-  // 顶栏图标按钮：实体背景 + 边框（不用透明），保证在亮/暗背景下都清晰可点
+  // 顶栏图标按钮：正方形（宽高一致）+ 实体背景 + 边框，圆角保留，亮/暗背景下清晰可点
   const iconBtn = useEmotionCss(({ token }) => ({
     border: `1px solid ${token.colorBorderSecondary}`,
     background: token.colorBgContainer,
     cursor: 'pointer',
-    padding: 6,
+    width: 28,
+    height: 28,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
     borderRadius: token.borderRadius,
     color: token.colorTextSecondary,
     boxShadow: token.boxShadowTertiary,
@@ -74,7 +82,7 @@ export default function HeaderBar(props: HeaderBarProps) {
       <div style={{ flex: 1 }} />
 
       {/* 过程开关 */}
-      <Tooltip title="显示/隐藏推理与工具调用过程">
+      <Tooltip title={fm('copilot.header.process.tip')}>
         <label
           style={{
             display: 'flex',
@@ -85,13 +93,13 @@ export default function HeaderBar(props: HeaderBarProps) {
             color: token.colorTextSecondary,
           }}
         >
-          过程
+          {fm('copilot.header.process')}
           <Switch size="small" checked={showProcess} onChange={onShowProcessChange} />
         </label>
       </Tooltip>
 
       {/* 自动滚动跟随 */}
-      <Tooltip title={autoFollow ? '自动滚动到底部（上翻查看时自动暂停）' : '已暂停自动滚动，点击恢复'}>
+      <Tooltip title={autoFollow ? fm('copilot.header.follow.on') : fm('copilot.header.follow.off')}>
         <button
           type="button"
           onClick={onToggleFollow}
@@ -103,7 +111,7 @@ export default function HeaderBar(props: HeaderBarProps) {
       </Tooltip>
 
       {/* 删除当前会话 */}
-      <Tooltip title="删除当前会话">
+      <Tooltip title={fm('copilot.header.clear')}>
         <button type="button" onClick={onClear} className={iconBtn}>
           <Trash2 size={16} />
         </button>
@@ -111,9 +119,9 @@ export default function HeaderBar(props: HeaderBarProps) {
 
       {/* 一键批准状态 */}
       {autoApprove && (
-        <Tooltip title="本对话自动批准已开启，点击关闭">
+        <Tooltip title={fm('copilot.header.auto.approve.on')}>
           <button type="button" onClick={onDisableAutoApprove} className={autoApproveBtn}>
-            <ShieldCheck size={14} /> 自动批准
+            <ShieldCheck size={14} /> {fm('copilot.header.auto.approve')}
           </button>
         </Tooltip>
       )}

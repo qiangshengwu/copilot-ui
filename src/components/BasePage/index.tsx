@@ -108,6 +108,8 @@ const BasePage: React.FC<BasePageProps> = ({
     padding: padding,
     boxSizing: 'border-box',
     overflow: 'hidden',
+    // 整体内容最外层四个角统一 12px 圆角（overflow:hidden 使子内容随圆角裁剪）
+    borderRadius: 12,
   }));
 
   /**

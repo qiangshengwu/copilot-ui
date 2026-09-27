@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { theme } from 'antd';
 import * as echarts from 'echarts';
+import { useIntl } from '@umijs/max';
 
 interface ChartBlockProps {
   option: Record<string, unknown>;
@@ -30,6 +31,7 @@ function luminance(color: string): number {
  */
 export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
   const { token } = theme.useToken();
+  const intl = useIntl();
   // antd useToken 不暴露 isDark，用布局背景亮度近似判断，用于选择 echarts 暗色主题
   const isDark = luminance(token.colorBgLayout) < 0.5;
   const ref = useRef<HTMLDivElement>(null);
@@ -101,7 +103,7 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
           background: token.colorErrorBg,
         }}
       >
-        图表渲染失败
+        {intl.formatMessage({ id: 'copilot.msg.chart.failed' })}
       </div>
     );
   }

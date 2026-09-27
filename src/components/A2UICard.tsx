@@ -4,6 +4,7 @@ import { XCard } from '@ant-design/x-card';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import type { A2UICommand } from '@/types';
 import ChartBlock from './ChartBlock';
+import { useIntl, getLocale } from '@umijs/max';
 
 // ============================================================
 // 后端协议 -> XCard.Box v0.9 命令格式 转换层
@@ -98,9 +99,12 @@ const TableComponent: React.FC<{
   rowKey?: string;
 }> = ({ columns, data, rowKey }) => {
   const { token } = theme.useToken();
+  const intl = useIntl();
   if (!Array.isArray(columns) || !Array.isArray(data)) {
     return (
-      <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>表格数据无效</span>
+      <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
+        {intl.formatMessage({ id: 'copilot.msg.a2ui.table.invalid' })}
+      </span>
     );
   }
   return (
@@ -118,9 +122,12 @@ const ChartComponent: React.FC<{ option?: Record<string, unknown>; title?: strin
   option,
 }) => {
   const { token } = theme.useToken();
+  const intl = useIntl();
   if (!option || typeof option !== 'object') {
     return (
-      <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>图表配置无效</span>
+      <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
+        {intl.formatMessage({ id: 'copilot.msg.a2ui.chart.invalid' })}
+      </span>
     );
   }
   return <ChartBlock option={option} />;
@@ -138,17 +145,19 @@ const StatisticComponent: React.FC<{
 /** 根容器：纵向排列子组件（x-card NodeRenderer 会把子节点作为 React children 传入） */
 const ColumnComponent: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { token } = theme.useToken();
+  const intl = useIntl();
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{children || <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>(空)</span>}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{children || <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>{intl.formatMessage({ id: 'copilot.msg.empty' })}</span>}</div>
   );
 };
 
 /** 未知组件类型占位（不崩溃） */
 const UnknownComponent: React.FC<{ __type?: string }> = ({ __type }) => {
   const { token } = theme.useToken();
+  const intl = useIntl();
   return (
     <span style={{ color: token.colorWarning, fontSize: 12 }}>
-      未知组件类型: {String(__type)}
+      {intl.formatMessage({ id: 'copilot.msg.a2ui.unknown.type' })}: {String(__type)}
     </span>
   );
 };
@@ -172,9 +181,10 @@ class A2UIErrorBoundary extends React.Component<
   }
   render() {
     if (this.state.hasError) {
+      const zh = getLocale().toLowerCase().startsWith('zh');
       return (
         <div style={{ fontSize: 12, color: 'inherit', opacity: 0.6, padding: '4px 0' }}>
-          结构化结果渲染失败
+          {zh ? '结构化结果渲染失败' : 'Failed to render structured result'}
         </div>
       );
     }
@@ -192,6 +202,7 @@ export interface A2UICardProps {
 
 export default function A2UICard({ commands, a2uiRaw }: A2UICardProps) {
   const { token } = theme.useToken();
+  const intl = useIntl();
 
   // 纵向容器样式（备用，实际 ColumnComponent 用 inline token 样式）
   const boxCss = useEmotionCss(({ token }) => ({
@@ -229,7 +240,7 @@ export default function A2UICard({ commands, a2uiRaw }: A2UICardProps) {
     if (a2uiRaw) {
       return (
         <div style={{ fontSize: 12, color: token.colorTextTertiary }}>
-          结构化结果（命令为空）
+          {intl.formatMessage({ id: 'copilot.msg.a2ui.empty' })}
         </div>
       );
     }

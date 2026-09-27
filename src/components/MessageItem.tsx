@@ -22,10 +22,13 @@ import ApprovalCard from './ApprovalCard';
 import ChartBlock from './ChartBlock';
 import A2UICard, { getA2UISurfaceTitle } from './A2UICard';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
+import { useIntl } from '@umijs/max';
 
 // ---------------- 工具结果解析（实体列表 -> Table；否则 JSON） ----------------
 function ResultView({ content }: { content?: string }) {
   const { token } = theme.useToken();
+  const intl = useIntl();
+  const fm = (id: string) => intl.formatMessage({ id });
   const parsed = useMemo(() => {
     if (!content) return null;
     try {
@@ -55,28 +58,28 @@ function ResultView({ content }: { content?: string }) {
       </pre>
     );
   if (!parsed)
-    return <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>(空)</span>;
+    return <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{fm('copilot.msg.empty')}</span>;
 
   const items = parsed?.entities?.items;
   if (Array.isArray(items) && items.length) {
     const isOn = (v: unknown) =>
       v === 'active' || v === 'enabled' || v === 'true' || v === true;
     const columns = [
-      { title: '名称', dataIndex: 'name', key: 'name' },
+      { title: fm('copilot.msg.table.name'), dataIndex: 'name', key: 'name' },
       {
-        title: '别名',
+        title: fm('copilot.msg.table.alias'),
         dataIndex: 'alias',
         key: 'alias',
         render: (v: unknown) => (v == null ? '' : String(v)),
       },
       {
-        title: '外部ID',
+        title: fm('copilot.msg.table.external.id'),
         dataIndex: 'externalId',
         key: 'externalId',
         render: (v: unknown) => (v == null ? '' : String(v)),
       },
       {
-        title: '状态',
+        title: fm('copilot.msg.table.status'),
         dataIndex: 'status',
         key: 'status',
         render: (v: unknown) =>
@@ -90,7 +93,7 @@ function ResultView({ content }: { content?: string }) {
           ),
       },
       {
-        title: '属性',
+        title: fm('copilot.msg.table.attr'),
         dataIndex: 'attributes',
         key: 'attributes',
         render: (v: Record<string, unknown> = {}) =>
@@ -113,7 +116,7 @@ function ResultView({ content }: { content?: string }) {
           pagination={false}
         />
         <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 4 }}>
-          共 {items.length} 条
+          {intl.formatMessage({ id: 'copilot.msg.total.count' }, { n: items.length })}
         </div>
       </Card>
     );
@@ -148,6 +151,8 @@ interface MessageItemProps {
 
 export default function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: MessageItemProps) {
   const { token } = theme.useToken();
+  const intl = useIntl();
+  const fm = (id: string) => intl.formatMessage({ id });
 
   // Markdown 渲染 / JSON 高亮 / 打字机光标 / 阶段动画样式 —— 由本组件 useEmotionCss 提供，
   // 通过全局选择器作用于 dangerouslySetInnerHTML 注入的 .md-body / .json-hl HTML。
@@ -310,7 +315,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
         return {
           key: b.id,
           icon: <Brain size={14} />,
-          title: '推理过程',
+          title: fm('copilot.msg.thinking'),
           status: (b.thinkingDone ? 'success' : 'loading') as 'success' | 'loading',
           content: (
             <div style={{ whiteSpace: 'pre-wrap', color: token.colorInfo, fontSize: 13 }}>
@@ -326,7 +331,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
           icon: <Wrench size={14} />,
           title: (
             <span>
-              调用工具 · {b.toolName}
+              {intl.formatMessage({ id: 'copilot.msg.tool.call' }, { name: b.toolName })}
               {b.risk && (
                 <Tag color={RISK_COLOR[b.risk] || 'default'} style={{ marginLeft: 6 }}>
                   {b.risk}
@@ -345,7 +350,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
         return {
           key: b.id,
           icon: <Package size={14} />,
-          title: `工具结果 · ${b.toolName || ''}`,
+          title: intl.formatMessage({ id: 'copilot.msg.tool.result' }, { name: b.toolName || '' }),
           status: 'success' as const,
           content: <ResultView content={b.resultContent} />,
         };
@@ -354,7 +359,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
       return {
         key: b.id,
         icon: b.approved ? <CheckCircle2 size={14} /> : <XCircle size={14} />,
-        title: b.approved ? '已批准' : '已拒绝',
+        title: b.approved ? fm('copilot.msg.approved') : fm('copilot.msg.rejected'),
         status: (b.approved ? 'success' : 'error') as 'success' | 'error',
       };
     });
@@ -417,7 +422,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
             <div key={b.id} className={cardClass}>
               <div className={cardTitle}>
                 <Table2 size={15} color={token.colorPrimary} />
-                {b.toolName || '实体列表'}
+                {b.toolName || fm('copilot.msg.entity.list')}
               </div>
               <ResultView content={b.resultContent} />
             </div>
@@ -430,10 +435,10 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 <div key={b.id} className={cardClass}>
                   <div className={cardTitle}>
                     <ChartLine size={15} color={token.colorPrimary} />
-                    {b.chartTitle || '数据图表'}
+                    {b.chartTitle || fm('copilot.msg.chart')}
                   </div>
                   {b.chartFailed || !b.chartOption ? (
-                    <div style={{ color: token.colorError, fontSize: 12 }}>图表渲染失败</div>
+                    <div style={{ color: token.colorError, fontSize: 12 }}>{fm('copilot.msg.chart.failed')}</div>
                   ) : (
                     <ChartBlock option={b.chartOption} />
                   )}
@@ -445,7 +450,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 <div key={b.id} className={cardClass}>
                   <div className={cardTitle}>
                     <LayoutTemplate size={15} color={token.colorPrimary} />
-                    {getA2UISurfaceTitle(b.a2uiCommands) || '结构化结果'}
+                    {getA2UISurfaceTitle(b.a2uiCommands) || fm('copilot.msg.structured')}
                   </div>
                   <A2UICard commands={b.a2uiCommands} a2uiRaw={b.a2uiRaw} />
                 </div>
@@ -466,7 +471,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
             return (
               <div key={b.id} className={errorBox}>
                 <AlertTriangle size={14} style={{ marginTop: 2 }} />
-                {b.errorText || '未知错误'}
+                {b.errorText || fm('copilot.msg.unknown.error')}
               </div>
             );
           })}
@@ -494,7 +499,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
               }}
             >
               <AlertTriangle size={14} />
-              连接中断：未收到任务完成事件
+              {fm('copilot.msg.disconnected')}
             </div>
           )}
         </div>

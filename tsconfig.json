@@ -13,7 +13,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@@/*": ["./.umi/*"]
+      "@umijs/max": ["./src/.umi/exports.ts"],
+      "@@/*": ["./src/.umi/*"]
     }
   },
   "include": ["src", ".umi/types", "config"]

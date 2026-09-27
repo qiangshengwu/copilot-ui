@@ -2,10 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { Modal } from 'antd';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useModel, useRequest } from '@umijs/max';
+import { useModel, useRequest, getLocale } from '@umijs/max';
 import { copilotClient } from '@/services/clients';
 import type { Block, ChatMessage, ConversationListResp, HistoryMessage, MessageListResp } from '@/types';
 import type { ChatState } from './useChatState';
+
+/** 中英切换辅助：用于 hooks 内的静态弹窗/提示文案（组件内统一用 useIntl） */
+const zhNow = () => getLocale().toLowerCase().startsWith('zh');
+const T = (zh: string, en: string) => (zhNow() ? zh : en);
 
 interface Options {
   chat: ChatState;
@@ -181,10 +185,10 @@ export function useConversations({ chat, runningRef }: Options) {
     const id = activeConvIdRef.current;
     if (!id) return;
     Modal.confirm({
-      title: '删除当前会话？',
-      content: '将删除该会话及其全部消息（服务端持久化，不可恢复）。',
-      okText: '删除',
-      cancelText: '取消',
+      title: T('删除当前会话？', 'Delete current conversation?'),
+      content: T('将删除该会话及其全部消息（服务端持久化，不可恢复）。', 'The conversation and all its messages will be deleted (persisted server-side, irreversible).'),
+      okText: T('删除', 'Delete'),
+      cancelText: T('取消', 'Cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {

@@ -3,6 +3,7 @@ import { Sender } from '@ant-design/x';
 import { Send } from 'lucide-react';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { theme } from 'antd';
+import { useIntl } from '@umijs/max';
 
 interface ComposerProps {
   running: boolean;
@@ -12,6 +13,7 @@ interface ComposerProps {
 
 export default function Composer({ running, onSend, onStop }: ComposerProps) {
   const { token } = theme.useToken();
+  const intl = useIntl();
   const [value, setValue] = useState('');
   const ref = useRef<{ focus: () => void } | null>(null);
 
@@ -61,7 +63,11 @@ export default function Composer({ running, onSend, onStop }: ComposerProps) {
           loading={running}
           onCancel={onStop}
           disabled={running}
-          placeholder={running ? '任务执行中…' : '给 Agent 发送消息，例如：统计当前租户下的设备总数…'}
+          placeholder={
+            running
+              ? intl.formatMessage({ id: 'copilot.composer.running.placeholder' })
+              : intl.formatMessage({ id: 'copilot.composer.placeholder' })
+          }
           autoSize={{ minRows: 1, maxRows: 6 }}
           prefix={<Send size={15} style={{ color: token.colorTextSecondary }} />}
           style={{
