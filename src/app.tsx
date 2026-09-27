@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphqlClient } from '@/utils/graphql/client';
-import { getLogin, setLogin, setTenant } from '@/utils/token';
+import { getLogin, setLogin, setTenant, tokenExpired } from '@/utils/token';
 import {
   LoginDocument,
   type LoginInput,
@@ -26,9 +26,10 @@ const DEFAULT_CREDENTIALS: LoginInput = {
 };
 
 export async function getInitialState(): Promise<{ tenant?: GetTenantQuery['tenant'] }> {
-  // 1) 确保登录 token
+  // 1) 确保登录 token：无 token 或已过期（平台 token 约 1 小时有效）都重新登录，
+  //    否则过期 token 被一直复用会导致后续请求全部 401（表现为"创建会话失败"等）。
   let login = getLogin();
-  if (!login?.token) {
+  if (!login?.token || tokenExpired(login.token)) {
     try {
       const res = await graphqlClient<LoginMutation, LoginMutationVariables>({
         query: LoginDocument,
@@ -36,6 +37,8 @@ export async function getInitialState(): Promise<{ tenant?: GetTenantQuery['tena
       });
       login = res.login;
       setLogin(login);
+      // 成功登录后清除"401 触发重载"的防抖标记，允许未来再次自动恢复
+      sessionStorage.removeItem('copilot_auth_reloading');
     } catch (e) {
       console.warn('[copilot] platform login failed:', e);
     }

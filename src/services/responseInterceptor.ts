@@ -1,4 +1,4 @@
-import { getLogin } from '@/utils/token';
+import { getLogin, delLogin } from '@/utils/token';
 import { message } from 'antd';
 
 const originalFetch = window.fetch;
@@ -48,7 +48,14 @@ export const interceptorFetch = async (...args: any[]) => {
     const response = await originalFetch(resource, authOptions);
 
     if (response.status === 401) {
-      // Copilot 内嵌于平台、无独立登录页：不跳转（避免破坏宿主），抛出由调用方/初始化流程处理
+      // 内嵌平台、无独立登录页：不跳登录页（避免破坏宿主）。
+      // token 过期时清除本地 token 并触发一次自动重登（getInitialState 会重新登录）；
+      // 用 sessionStorage 标记防抖，避免连续 401 反复 reload 死循环。
+      delLogin();
+      if (typeof window !== 'undefined' && !sessionStorage.getItem('copilot_auth_reloading')) {
+        sessionStorage.setItem('copilot_auth_reloading', '1');
+        window.location.reload();
+      }
       throw new FetchError(401, '未登录或登录已过期', response);
     }
 

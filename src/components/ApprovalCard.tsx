@@ -1,7 +1,7 @@
 import { Card, Button, Tag } from 'antd';
 import { ShieldAlert, Check, X, ShieldCheck } from 'lucide-react';
 import { theme } from 'antd';
-import { highlightJson } from '@/utils/jsonHighlight';
+import JsonView from './JsonView';
 
 interface ApprovalCardProps {
   tool?: string;
@@ -40,17 +40,7 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
       >
         参数
       </div>
-      <div
-        style={{
-          background: token.colorFillQuaternary,
-          borderRadius: token.borderRadiusSM,
-          padding: '8px 10px',
-          marginBottom: 12,
-          border: `1px solid ${token.colorBorderSecondary}`,
-        }}
-      >
-        <div dangerouslySetInnerHTML={{ __html: highlightJson(params) }} />
-      </div>
+      <JsonView value={params} />
       <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
         <Button type="primary" danger block icon={<Check size={14} />} onClick={() => onApprove(true)}>
           批准

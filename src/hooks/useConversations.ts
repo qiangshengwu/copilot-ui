@@ -220,7 +220,11 @@ export function useConversations({ chat, runningRef }: Options) {
     loadMore,
     hasMore,
     loadingMore,
-    createConversation: (title: string) => createReq.run(title),
+    createConversation: async (title: string) => {
+      // openapi-fetch 返回 { data, error }，业务体在 data（含 id）；取 data 供调用方直接用 conv.id
+      const res = (await createReq.run(title)) as { data?: { id: string } };
+      return res?.data as { id: string };
+    },
   };
 }
 

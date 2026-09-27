@@ -33,3 +33,18 @@ export const getTenant = (): GetTenantQuery['tenant'] | undefined => {
   }
   return undefined;
 };
+
+/** 判断 JWT 是否已过期（按 exp 字段；非 JWT / 无 exp 视为未过期） */
+export function tokenExpired(token?: string): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return false; // 非 JWT，无法判断，按有效处理
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64));
+    if (typeof payload?.exp === 'number') return payload.exp * 1000 <= Date.now();
+  } catch {
+    /* 解码失败：不拦截，按有效处理 */
+  }
+  return false;
+}

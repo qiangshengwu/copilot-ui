@@ -1,11 +1,8 @@
 import {defineConfig} from '@umijs/max';
 
-// agent dev server（9091）：新路由为 /{workspaceID}/...（workspaceID=租户 id）
-// A2UI 联调：/*/copilot/** 与 /health 指本地新后端（build\agent-a2ui-local.exe，9091）；
-// /auth/login 与 /graphql 属平台能力（copilot 服务不提供），仍走远端 nginx 统一入口。
-// 服务器部署新版后可把 copilot 两条也改回 http://192.168.1.14。
-const AGENT_TARGET = 'http://192.168.1.14';
-const AGENT_LOCAL = 'http://localhost:9091';
+// 统一走远端 nginx 统一入口 http://192.168.1.14（不写端口）：/auth、/graphql、/copilot、/task、/health
+// 全部由 nginx 反代到后端各服务；前端不感知具体服务端口。
+const TARGET = 'http://192.168.1.14';
 
 // dev server 的 compression 中间件会把 SSE 流 gzip 缓冲，
 // 浏览器 fetch ReadableStream 收不到字节；用 no-transform 跳过压缩。
@@ -43,19 +40,12 @@ export default defineConfig({
         {path: '/', component: 'index'},
     ],
     proxy: {
-        '/auth/login': {target: AGENT_TARGET, changeOrigin: true, onProxyRes: noTransform},
-        '/graphql': {target: AGENT_TARGET, changeOrigin: true, onProxyRes: noTransform},
-        '/*/copilot/**': {target: AGENT_LOCAL, changeOrigin: true, onProxyRes: noTransform},
-        // SSE 流与任务轮询：前端使用 /{workspaceID}/task/{id}/stream 与 /{workspaceID}/task/{id}（无 /copilot 段），
-        // 本地后端路由带 /copilot，故 rewrite 补上（与服务器 nginx 行为一致）
-        '/*/task/**': {
-            target: AGENT_LOCAL,
-            changeOrigin: true,
-            onProxyRes: noTransform,
-            pathRewrite: (path: string) => path.replace(/\/task\//, '/copilot/task/'),
-        },
-        // health：顶层
-        '/health': {target: AGENT_LOCAL, changeOrigin: true},
+        '/auth/login': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
+        '/graphql': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
+        '/*/copilot/**': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
+        // SSE 流与任务轮询：/task/ 前缀统一由 nginx 反代（nginx 负责 rewrite 到 /copilot/task/），前端不再干预路径
+        '/*/task/**': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
+        '/health': {target: TARGET, changeOrigin: true},
     },
     npmClient: 'npm',
 });

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { ChatMessage, Block } from '@/types';
 import { XMarkdown } from '@ant-design/x-markdown';
-import { highlightJson } from '@/utils/jsonHighlight';
+import JsonView from './JsonView';
 import ApprovalCard from './ApprovalCard';
 import ChartBlock from './ChartBlock';
 import A2UICard, { getA2UISurfaceTitle } from './A2UICard';
@@ -35,7 +35,25 @@ function ResultView({ content }: { content?: string }) {
     }
   }, [content]);
 
-  if (parsed === undefined) return <pre className="json-plain">{content}</pre>;
+  if (parsed === undefined)
+    return (
+      <pre
+        style={{
+          fontFamily: 'ui-monospace, Consolas, monospace',
+          fontSize: 12.5,
+          lineHeight: 1.55,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          margin: 0,
+          background: token.colorFillQuaternary,
+          borderRadius: token.borderRadiusLG,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          padding: '8px 10px',
+        }}
+      >
+        {content}
+      </pre>
+    );
   if (!parsed)
     return <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>(空)</span>;
 
@@ -100,7 +118,7 @@ function ResultView({ content }: { content?: string }) {
       </Card>
     );
   }
-  return <div dangerouslySetInnerHTML={{ __html: highlightJson(parsed) }} />;
+  return <JsonView value={parsed} />;
 }
 
 const RISK_COLOR: Record<string, string> = { read: 'green', modify: 'orange', danger: 'red' };
@@ -187,19 +205,6 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
     },
     '.md-body table thead th': { background: token.colorFillSecondary, fontWeight: 600, fontSize: 12 },
     '.md-body table tbody tr:nth-child(even)': { background: token.colorFillQuaternary },
-    // JSON 高亮
-    '.json-hl, .json-plain': {
-      fontFamily: 'ui-monospace, Consolas, monospace',
-      fontSize: '12.5px',
-      lineHeight: 1.55,
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word',
-      margin: 0,
-    },
-    '.json-hl .kd': { color: token.colorInfo },
-    '.json-hl .ks': { color: token.colorSuccess },
-    '.json-hl .kn': { color: token.colorWarning },
-    '.json-hl .kb': { color: token.colorTextSecondary },
     // 打字机光标
     '.type-cursor': {
       display: 'inline-block',
@@ -333,7 +338,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
             | 'success'
             | 'loading'
             | 'error',
-          content: <div dangerouslySetInnerHTML={{ __html: highlightJson(b.params) }} />,
+          content: <JsonView value={b.params} />,
         };
       }
       if (b.kind === 'tool_result') {

@@ -366,7 +366,7 @@ export function useTask({chat, convs}: Options) {
 
                 let j: { state?: string; final_answer?: string; error?: string };
                 try {
-                    const resp = await fetch(`${tenantId}/task/${encodeURIComponent(taskId)}`,
+                    const resp = await fetch(`${tenantId}/copilot/task/${encodeURIComponent(taskId)}`,
                         {
                             headers: {Authorization: `Bearer ${getLogin()?.token}`},
                             signal
@@ -507,7 +507,7 @@ export function useTask({chat, convs}: Options) {
 
                 // 2. 订阅 SSE 流式端点（订阅后后端启动任务，事件不丢）
                 const streamResp = await fetch(
-                    `${tenantId}/task/${encodeURIComponent(taskId)}/stream`,
+                    `${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
                     {
                         headers: {Authorization: `Bearer ${getLogin()?.token}`},
                         signal: abortRef.current.signal,
