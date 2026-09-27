@@ -16,7 +16,9 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
       style={{
         marginBottom: 10,
         borderColor: 'rgba(239,68,68,0.4)',
-        background: 'rgba(239,68,68,0.05)',
+        background: 'var(--error-bg)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-sm)',
       }}
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
@@ -26,8 +28,18 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
         </span>
       }
     >
-      <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>参数</div>
-      <div dangerouslySetInnerHTML={{ __html: highlightJson(params) }} />
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--md-muted)', marginBottom: 6 }}>参数</div>
+      <div
+        style={{
+          background: 'var(--md-pre-bg)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '8px 10px',
+          marginBottom: 12,
+          border: '1px solid var(--md-border)',
+        }}
+      >
+        <div dangerouslySetInnerHTML={{ __html: highlightJson(params) }} />
+      </div>
       <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
         <Button type="primary" danger block icon={<Check size={14} />} onClick={() => onApprove(true)}>
           批准
@@ -38,7 +50,13 @@ export default function ApprovalCard({ tool, params, onApprove, onApproveAndTrus
       </div>
       <Button
         block
-        style={{ marginTop: 8, borderColor: '#f59e0b', color: '#f59e0b' }}
+        style={{
+          marginTop: 8,
+          borderColor: 'var(--phase-tool)',
+          color: 'var(--phase-tool)',
+          background: 'var(--phase-tool-bg)',
+          fontWeight: 500,
+        }}
         icon={<ShieldCheck size={14} />}
         onClick={() => {
           onApproveAndTrust();

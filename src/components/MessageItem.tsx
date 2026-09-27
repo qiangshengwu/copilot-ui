@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   ChartLine,
   Table2,
+  Send,
 } from 'lucide-react';
 import type { ChatMessage, Block } from '@/types';
 import { renderMarkdown } from '@/utils/markdown';
@@ -63,7 +64,11 @@ function ResultView({ content }: { content?: string }) {
       },
     ];
     return (
-      <Card size="small" variant="outlined" style={{ marginTop: 4 }}>
+      <Card
+        size="small"
+        variant="outlined"
+        style={{ marginTop: 4, border: 'none', background: 'transparent', boxShadow: 'none' }}
+      >
         <Table size="small" rowKey={(_, i) => String(i)} dataSource={items} columns={columns as never} pagination={false} />
         <div style={{ fontSize: 12, color: 'var(--md-muted)', marginTop: 4 }}>共 {items.length} 条</div>
       </Card>
@@ -76,6 +81,19 @@ const RISK_COLOR: Record<string, string> = { read: 'green', modify: 'orange', da
 
 const botAvatar = { icon: <Bot size={16} />, style: { background: 'linear-gradient(135deg,#34d399,#0d9488)' } };
 const userAvatar = { icon: <User size={16} />, style: { background: '#52525b' } };
+
+/** phase 文案 -> 语义色/图标（纯展示层映射，不影响流程逻辑） */
+function phaseMeta(phase: string): { color: string; bg: string; Icon: typeof Brain } {
+  if (/推理|分析|思考|回答/.test(phase))
+    return { color: 'var(--phase-thinking)', bg: 'var(--phase-thinking-bg)', Icon: Brain };
+  if (/工具|调用/.test(phase))
+    return { color: 'var(--phase-tool)', bg: 'var(--phase-tool-bg)', Icon: Wrench };
+  if (/审批|等待/.test(phase))
+    return { color: 'var(--phase-wait)', bg: 'var(--phase-wait-bg)', Icon: AlertTriangle };
+  if (/整理|结果|完成/.test(phase))
+    return { color: 'var(--phase-done)', bg: 'var(--phase-done-bg)', Icon: CheckCircle2 };
+  return { color: 'var(--phase-send)', bg: 'var(--phase-send-bg)', Icon: Send };
+}
 
 interface MessageItemProps {
   msg: ChatMessage;
@@ -170,6 +188,8 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
     ? renderMarkdown(msg.streamingContent || '')
     : renderMarkdown(msg.content || '');
 
+  const phase = msg.phase ? phaseMeta(msg.phase) : null;
+
   return (
     <Bubble
       placement="start"
@@ -177,21 +197,24 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
       variant="borderless"
       content={
         <div style={{ minWidth: 0 }}>
-          {/* phase 状态徽标 */}
-          {msg.phase && (
+          {/* phase 状态徽标：带语义图标小药丸 */}
+          {phase && (
             <div
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                marginBottom: 8,
-                padding: '3px 12px',
-                borderRadius: 999,
+                marginBottom: 10,
+                padding: '3px 11px',
+                borderRadius: 'var(--radius-pill)',
                 border: '1px solid var(--md-border)',
+                background: phase.bg,
                 fontSize: 12,
-                color: 'var(--md-muted)',
+                fontWeight: 500,
+                color: phase.color,
               }}
             >
+              <phase.Icon size={12} />
               {msg.phaseBusy && <span className="spin-dot" />}
               {msg.phase}
             </div>
@@ -215,12 +238,14 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
           {entityBlocks.map((b) => (
             <div
               key={b.id}
+              className="copilot-card"
               style={{
                 border: '1px solid var(--card-border)',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-lg)',
                 marginBottom: 10,
-                padding: 10,
+                padding: 12,
                 background: 'var(--card-bg)',
+                boxShadow: 'var(--shadow-sm)',
               }}
             >
               <div
@@ -229,7 +254,7 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                   alignItems: 'center',
                   gap: 8,
                   fontSize: 13,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   marginBottom: 6,
                   color: 'var(--card-title)',
                 }}
@@ -247,14 +272,17 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
               return (
                 <div
                   key={b.id}
+                  className="copilot-card"
                   style={{
                     border: '1px solid var(--card-border)',
-                    borderRadius: 12,
+                    borderRadius: 'var(--radius-lg)',
                     marginBottom: 10,
                     padding: 12,
+                    background: 'var(--card-bg)',
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--card-title)' }}>
                     <ChartLine size={15} color="var(--emerald)" />
                     {b.chartTitle || '数据图表'}
                   </div>
@@ -289,7 +317,8 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                   color: '#ef4444',
                   fontSize: 13,
                   padding: '8px 12px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(239,68,68,0.25)',
                   background: 'var(--error-bg)',
                 }}
               >
@@ -319,8 +348,10 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 gap: 6,
                 color: '#ef4444',
                 fontSize: 13,
-                padding: '6px 10px',
-                borderRadius: 8,
+                fontWeight: 500,
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid rgba(239,68,68,0.25)',
                 background: 'var(--error-bg)',
               }}
             >

@@ -9,7 +9,8 @@ import type {
   HistoryMessage,
   MessageListResp,
 } from '@/types';
-import { getToken, getCurrentTenantId } from './platform';
+import { getToken, setToken, login } from './platform';
+import { CURRENT_TENANT_ID } from '@/tenant';
 
 const BASE_KEY = 'copilot-base';
 
@@ -52,9 +53,9 @@ export function apiUrl(path: string): string {
 // 任务：/{workspaceID}/copilot/task[/approve|/:id][/stream]
 // ============================================================
 
-/** 当前 workspaceID 下的 copilot 业务前缀：`/${workspaceID}/copilot` */
+/** 当前 workspaceID 下的 copilot 业务前缀：`/${workspaceID}/copilot`。租户固定（内嵌平台）。 */
 export function workspacePrefix(): string {
-  return `/${encodeURIComponent(getCurrentTenantId())}/copilot`;
+  return `/${encodeURIComponent(CURRENT_TENANT_ID)}/copilot`;
 }
 
 /** 会话 API 前缀：`/${workspaceID}/copilot/conversations`（每次调用时按当前租户动态取值） */
@@ -76,7 +77,8 @@ function withAuth(init?: RequestInit): RequestInit {
   return { ...init, headers };
 }
 
-/** 统一请求：注入 Authorization，解析 JSON，非 ok 时抛出后端 error 信息 */
+/** 统一请求：注入 Authorization，解析 JSON，非 ok 时抛出后端 error 信息。
+ *  HTTP 401 时清空 token、用默认凭据重登一次后重试原请求（仅一次）；仍 401 再抛错。 */
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(apiUrl(path), withAuth(init));
   const text = await resp.text();
@@ -88,6 +90,31 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       body = text;
     }
   }
+
+  // token 失效：重登一次后重试原请求（不递归，login 失败直接抛出，避免无限重试）
+  if (resp.status === 401) {
+    setToken('');
+    await login();
+    const retryResp = await fetch(apiUrl(path), withAuth(init));
+    const retryText = await retryResp.text();
+    let retryBody: unknown = null;
+    if (retryText) {
+      try {
+        retryBody = JSON.parse(retryText);
+      } catch {
+        retryBody = retryText;
+      }
+    }
+    if (!retryResp.ok) {
+      const msg =
+        (retryBody as { error?: string } | null)?.error ||
+        (typeof retryBody === 'string' && retryBody) ||
+        `HTTP ${retryResp.status}`;
+      throw new Error(msg);
+    }
+    return retryBody as T;
+  }
+
   if (!resp.ok) {
     const msg =
       (body as { error?: string } | null)?.error ||
@@ -148,4 +175,27 @@ export function appendMessage(
     `${convPrefix()}/${encodeURIComponent(conversationId)}/messages`,
     jsonInit('POST', body),
   );
+}
+
+// ============================================================
+// 任务 API：approve / cancel 为即发即忘（fire-and-forget）。
+// POST /task 创建与 GET /task/{id}/stream 订阅因需 AbortSignal + 原始流，
+// 由 useTask 直接 fetch（与原实现一致），这里只封装无需特殊处理的两个端点。
+// ============================================================
+
+/** POST /{workspaceID}/copilot/task/approve：{task_id, approved}。即发即忘。 */
+export function approveTask(taskId: string, approved: boolean): Promise<Response> {
+  return fetch(apiUrl(`${workspacePrefix()}/task/approve`), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ task_id: taskId, approved }),
+  });
+}
+
+/** DELETE /{workspaceID}/copilot/task/{id}：取消任务。即发即忘。 */
+export function cancelTask(taskId: string): Promise<Response> {
+  return fetch(apiUrl(`${workspacePrefix()}/task/${encodeURIComponent(taskId)}`), {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
 }

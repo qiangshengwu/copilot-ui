@@ -28,6 +28,41 @@ body {
   --error-bg: rgba(239, 68, 68, 0.08);
   --page-bg: #f7f8fa;            /* 页面底色（浅色） */
   --page-text: #1f2937;          /* 页面正文（浅色） */
+
+  /* ========== 设计 token（浅色）：统一圆角 / 阴影 / 间距 / 阶段语义色 ========== */
+  /* --radius-*: 组件圆角档位，消除散落 magic number */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  /* --shadow-*: 柔和的 emerald 系投影，hover 抬升 / 卡片分层使用 */
+  --shadow-sm: 0 1px 2px rgba(16, 163, 127, 0.06), 0 1px 6px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(16, 163, 127, 0.10), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 32px rgba(16, 163, 127, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+  /* --spacing-*: 4 的倍数间距档，统一组件内/外边距节奏 */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  /* 阶段徽标语义色：推理=紫 / 工具=琥珀 / 等待审批=红 / 整理结果=绿 / 发送=灰 */
+  --phase-thinking: #7c3aed;
+  --phase-tool: #b45309;
+  --phase-wait: #dc2626;
+  --phase-done: #10a37f;
+  --phase-send: #6b7280;
+  --phase-thinking-bg: rgba(139, 92, 246, 0.10);
+  --phase-tool-bg: rgba(217, 119, 6, 0.10);
+  --phase-wait-bg: rgba(239, 68, 68, 0.10);
+  --phase-done-bg: rgba(16, 163, 127, 0.10);
+  --phase-send-bg: rgba(107, 114, 128, 0.10);
+  /* 文本 / 表面语义：替代组件内硬编码灰（#6b7280/#9ca3af/#1f2937 等） */
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --border-soft: rgba(0, 0, 0, 0.08);
+  --surface-hover: rgba(0, 0, 0, 0.035);
+  --surface-sider: rgba(248, 249, 251, 0.9);
 }
 .dark {
   --md-text: #d1d5db;
@@ -45,6 +80,26 @@ body {
   --error-bg: rgba(239, 68, 68, 0.14);
   --page-bg: #141414;            /* 页面底色（暗色，与 antd darkAlgorithm 一致） */
   --page-text: #e5e7eb;          /* 页面正文（暗色） */
+
+  /* ========== 设计 token（暗色） ========== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --phase-thinking: #a78bfa;
+  --phase-tool: #fbbf24;
+  --phase-wait: #f87171;
+  --phase-done: #34d399;
+  --phase-send: #9ca3af;
+  --phase-thinking-bg: rgba(167, 139, 250, 0.16);
+  --phase-tool-bg: rgba(251, 191, 36, 0.14);
+  --phase-wait-bg: rgba(248, 113, 113, 0.16);
+  --phase-done-bg: rgba(52, 211, 153, 0.14);
+  --phase-send-bg: rgba(156, 163, 175, 0.14);
+  --text-primary: #e5e7eb;
+  --text-secondary: #d1d5db;
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-sider: rgba(24, 24, 24, 0.6);
 }
 
 /* ---------- 页面底色：跟随主题，避免暗色下中央聊天区/空白区残留白底 ---------- */
@@ -209,4 +264,101 @@ body,
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ---------- 微交互：统一过渡（150ms） ---------- */
+.icon-btn,
+.conv-item,
+.welcome-prompt,
+.copilot-card {
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+/* 顶栏 / 侧栏图标按钮：悬停浮现底色 */
+.icon-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* 会话列表项：hover 底色 + active 品牌色左竖条 */
+.conv-item {
+  position: relative;
+}
+.conv-item:hover {
+  background: var(--surface-hover);
+}
+.conv-item.conv-item--active {
+  background: var(--phase-done-bg);
+}
+.conv-item.conv-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 58%;
+  border-radius: var(--radius-pill);
+  background: var(--emerald);
+}
+
+/* 会话列表加载占位（Skeleton 脉动） */
+.conv-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+.conv-skeleton .sk-line {
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--surface-hover) 25%, var(--md-head-bg) 37%, var(--surface-hover) 63%);
+  background-size: 400% 100%;
+  animation: sk-pulse 1.4s ease infinite;
+}
+@keyframes sk-pulse {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* 非流式卡片：hover 轻抬升 */
+.copilot-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Welcome 示例提示：hover 反馈 */
+.welcome-prompt:hover {
+  border-color: var(--emerald) !important;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+/* phase 忙碌小圆点（MessageItem 中 spin-dot） */
+.spin-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: spin-pulse 1s ease-in-out infinite;
+}
+@keyframes spin-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }

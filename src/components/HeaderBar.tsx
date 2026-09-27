@@ -42,10 +42,10 @@ export default function HeaderBar(props: HeaderBarProps) {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
         flexWrap: 'wrap',
         padding: '8px 16px',
-        borderBottom: '1px solid rgba(128,128,128,0.2)',
+        borderBottom: '1px solid var(--border-soft)',
         background: dark ? 'rgba(30,30,30,0.9)' : 'rgba(255,255,255,0.9)',
         backdropFilter: 'blur(8px)',
         zIndex: 10,
@@ -77,13 +77,13 @@ export default function HeaderBar(props: HeaderBarProps) {
                 padding: '1px 6px',
                 borderRadius: 4,
                 background: dark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.12)',
-                color: '#10a37f',
+                color: 'var(--emerald)',
               }}
             >
               Agent
             </span>
           </div>
-          <div style={{ fontSize: 11, color: '#9ca3af' }}>控制台</div>
+          <div style={{ fontSize: 11, color: 'var(--md-muted)' }}>控制台</div>
         </div>
       </div>
 
@@ -91,7 +91,7 @@ export default function HeaderBar(props: HeaderBarProps) {
 
       {/* 过程开关 */}
       <Tooltip title="显示/隐藏推理与工具调用过程">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: '#6b7280' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
           过程
           <Switch size="small" checked={showProcess} onChange={onShowProcessChange} />
         </label>
@@ -102,13 +102,14 @@ export default function HeaderBar(props: HeaderBarProps) {
         <button
           type="button"
           onClick={onToggleFollow}
+          className="icon-btn"
           style={{
             border: 'none',
             background: 'transparent',
             cursor: 'pointer',
             padding: 6,
             borderRadius: 8,
-            color: autoFollow ? '#10a37f' : '#9ca3af',
+            color: autoFollow ? 'var(--emerald)' : 'var(--md-muted)',
           }}
         >
           <ArrowDownToLine size={16} />
@@ -120,7 +121,8 @@ export default function HeaderBar(props: HeaderBarProps) {
         <button
           type="button"
           onClick={onClear}
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9ca3af' }}
+          className="icon-btn"
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, borderRadius: 8, color: 'var(--md-muted)' }}
         >
           <Trash2 size={16} />
         </button>
@@ -132,13 +134,14 @@ export default function HeaderBar(props: HeaderBarProps) {
           <button
             type="button"
             onClick={onDisableAutoApprove}
+            className="icon-btn"
             style={{
               border: '1px solid rgba(16,185,129,0.4)',
               background: dark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.08)',
               cursor: 'pointer',
               padding: '4px 8px',
               borderRadius: 8,
-              color: '#10a37f',
+              color: 'var(--emerald)',
               display: 'flex',
               alignItems: 'center',
               gap: 4,
@@ -155,7 +158,8 @@ export default function HeaderBar(props: HeaderBarProps) {
         <button
           type="button"
           onClick={onToggleTheme}
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9ca3af' }}
+          className="icon-btn"
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 6, borderRadius: 8, color: 'var(--md-muted)' }}
         >
           {dark ? <Sun size={16} /> : <Moon size={16} />}
         </button>
@@ -187,7 +191,7 @@ export default function HeaderBar(props: HeaderBarProps) {
           placeholder="Agent 地址(同源)"
           value={base}
           onChange={(e) => onBaseChange(e.target.value)}
-          prefix={<Monitor size={12} style={{ color: '#9ca3af' }} />}
+          prefix={<Monitor size={12} style={{ color: 'var(--md-muted)' }} />}
         />
       </Tooltip>
     </div>

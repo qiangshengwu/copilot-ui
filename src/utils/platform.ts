@@ -1,25 +1,18 @@
-// 平台（认证 + 租户列表）模块。
+// 平台认证模块（内嵌场景：租户固定，不在此拉租户列表）。
 //
 // 平台后端：http://192.168.1.14:8080
 //   - 登录：POST /auth/login  body {"identifier","secret","kind":"password"} -> {"token":"..."}
-//   - 租户：POST /graphql     Authorization: Bearer <token>
 //
-// dev 环境下前端不直连平台，统一走 /platform 前缀（umi proxy 剥离前缀转发，见 config/config.ts）。
-// token 持久化到 localStorage（键 copilot-platform-token，与 copilot-base 风格一致）。
-// 模块级缓存：token、租户列表、当前选中租户 id（= workspaceID，agent 路由路径段的唯一租户来源）。
-
-import type { Tenant } from '@/types';
+// dev 环境下前端不直连平台，统一走 /auth、/graphql 前缀（umi proxy 转发，见 config/config.ts）。
+// token 持久化到 localStorage（键 copilot-platform-token）。
+// 租户固定为 CURRENT_TENANT_ID（见 src/tenant.ts），agent 路由 /{workspaceID}/... 的 workspaceID 即它。
 
 const TOKEN_KEY = 'copilot-platform-token';
-const TENANT_ID_KEY = 'copilot-tenant-id';
 
 // 默认平台管理员凭据。dev 下未登录时自动用它登录；
 // 后续若做正式登录页 / 环境注入，应替换掉这里的硬编码。
 const DEFAULT_IDENTIFIER = 'admin';
 const DEFAULT_SECRET = '12345678';
-
-const TENANTS_QUERY =
-  'query($limit: Int) { tenants(limit: $limit) { total items { id name alias status } } }';
 
 // ============================================================
 // token
@@ -50,45 +43,7 @@ export function setToken(t: string): void {
 }
 
 // ============================================================
-// 租户列表缓存 / 当前租户（workspaceID）
-// ============================================================
-
-let tenantsCache: Tenant[] = [];
-let tenantsLoading: Promise<Tenant[]> | null = null;
-
-/** 已缓存的租户列表（不发起请求） */
-export function getTenants(): Tenant[] {
-  return tenantsCache;
-}
-
-function readStoredTenantId(): string {
-  try {
-    return localStorage.getItem(TENANT_ID_KEY) || '';
-  } catch {
-    return '';
-  }
-}
-
-let currentTenantId: string = readStoredTenantId();
-
-/** 当前选中租户 id = workspaceID（agent 路由路径段唯一租户来源） */
-export function getCurrentTenantId(): string {
-  return currentTenantId;
-}
-
-/** 切换当前租户；同时持久化，刷新后保持选中 */
-export function setCurrentTenantId(id: string): void {
-  currentTenantId = id || '';
-  try {
-    if (currentTenantId) localStorage.setItem(TENANT_ID_KEY, currentTenantId);
-    else localStorage.removeItem(TENANT_ID_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-// ============================================================
-// 平台调用（均走 /platform 前缀，由 dev proxy 转发）
+// 平台调用（均走 /auth 前缀，由 dev proxy 转发）
 // ============================================================
 
 /** 登录平台；成功后写入 token 缓存 */
@@ -115,38 +70,4 @@ export async function login(
 export async function ensureLoggedIn(): Promise<string> {
   if (token) return token;
   return login();
-}
-
-/**
- * 拉取租户列表。未登录先自动登录；带模块级缓存与并发去重。
- * 返回 data.tenants.items[]。
- */
-export async function fetchTenants(): Promise<Tenant[]> {
-  if (tenantsCache.length) return tenantsCache;
-  if (tenantsLoading) return tenantsLoading;
-  tenantsLoading = (async () => {
-    await ensureLoggedIn();
-    const resp = await fetch('/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ query: TENANTS_QUERY, variables: { limit: 200 } }),
-    });
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => '');
-      throw new Error(`拉取租户失败 HTTP ${resp.status} ${text}`.trim());
-    }
-    const j = (await resp.json()) as {
-      data?: { tenants?: { items?: Tenant[] } };
-    };
-    tenantsCache = j?.data?.tenants?.items || [];
-    return tenantsCache;
-  })();
-  try {
-    return await tenantsLoading;
-  } finally {
-    tenantsLoading = null;
-  }
 }

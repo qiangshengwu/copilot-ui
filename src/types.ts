@@ -58,6 +58,17 @@ export interface TaskRequestBody {
   history: { role: string; content: string }[];
 }
 
+/** POST /{workspaceID}/copilot/task 响应（仅需 id 用于订阅流） */
+export interface TaskCreatedResp {
+  id: string;
+}
+
+/** POST /task 请求体（user_id/tenant_id 由后端从 session 取，前端不传） */
+export interface CreateTaskBody {
+  prompt: string;
+  history: { role: string; content: string }[];
+}
+
 // ---------------- 渲染侧模型 ----------------
 
 export type BlockKind =

@@ -21,7 +21,9 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
     if (!ref.current) return;
     let inst: echarts.ECharts | null = null;
     try {
-      inst = echarts.init(ref.current);
+      // 暗色适配：<html> 上的 .dark class 与 antd darkAlgorithm 同步，暗色下用 echarts 'dark' 主题
+      const dark = document.documentElement.classList.contains('dark');
+      inst = echarts.init(ref.current, dark ? 'dark' : undefined);
       inst.setOption(option as echarts.EChartsOption);
       instRef.current = inst;
       setFailed(false);
@@ -74,11 +76,11 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#cf1322',
+          color: '#ef4444',
           fontSize: 12,
-          border: '1px dashed #ffa39e',
-          borderRadius: 8,
-          background: 'rgba(255,0,0,0.03)',
+          border: '1px dashed var(--md-border)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--error-bg)',
         }}
       >
         图表渲染失败

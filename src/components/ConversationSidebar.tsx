@@ -47,10 +47,8 @@ export default function ConversationSidebar({
   onDelete,
   onRename,
 }: ConversationSidebarProps) {
-  const borderColor = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
-  const itemBg = dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
-  const activeBg = 'rgba(16,185,129,0.16)';
-  const muted = dark ? '#9ca3af' : '#6b7280';
+  const borderColor = 'var(--border-soft)';
+  const muted = 'var(--md-muted)';
 
   // 内联重命名状态
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -89,7 +87,7 @@ export default function ConversationSidebar({
         display: 'flex',
         flexDirection: 'column',
         borderRight: `1px solid ${borderColor}`,
-        background: dark ? 'rgba(24,24,24,0.6)' : 'rgba(248,249,251,0.9)',
+        background: 'var(--surface-sider)',
       }}
     >
       <div style={{ padding: 12, borderBottom: `1px solid ${borderColor}` }}>
@@ -99,7 +97,7 @@ export default function ConversationSidebar({
           icon={<Plus size={15} />}
           disabled={running}
           onClick={onNew}
-          style={{ background: running ? undefined : '#10a37f' }}
+          style={{ background: running ? undefined : 'var(--emerald)' }}
         >
           新建会话
         </Button>
@@ -115,9 +113,23 @@ export default function ConversationSidebar({
           gap: 4,
         }}
       >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: 0.4,
+            color: muted,
+            padding: '4px 10px 6px',
+            textTransform: 'uppercase',
+          }}
+        >
+          历史会话
+        </div>
         {loading ? (
-          <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: muted }}>
-            加载会话…
+          <div className="conv-skeleton">
+            <div className="sk-line" />
+            <div className="sk-line" style={{ opacity: 0.7 }} />
+            <div className="sk-line" style={{ opacity: 0.5 }} />
           </div>
         ) : conversations.length === 0 ? (
           <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: muted }}>
@@ -134,18 +146,18 @@ export default function ConversationSidebar({
                   if (!running && !editing) onSelect(c.id);
                 }}
                 title={c.title}
+                className={`conv-item${active ? ' conv-item--active' : ''}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                   padding: '8px 10px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   cursor: running ? 'not-allowed' : 'pointer',
-                  background: active ? activeBg : 'transparent',
                   opacity: running && !active ? 0.6 : 1,
                 }}
               >
-                <MessageSquare size={14} style={{ flexShrink: 0, color: active ? '#10a37f' : muted }} />
+                <MessageSquare size={14} style={{ flexShrink: 0, color: active ? 'var(--emerald)' : muted }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {editing ? (
                     <Input
@@ -162,7 +174,7 @@ export default function ConversationSidebar({
                     <div
                       style={{
                         fontSize: 13,
-                        color: dark ? '#e5e7eb' : '#1f2937',
+                        color: 'var(--text-primary)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -215,6 +227,7 @@ export default function ConversationSidebar({
                         role="button"
                         tabIndex={-1}
                         onClick={(e) => startEdit(c, e)}
+                        className="icon-btn"
                         style={{
                           flexShrink: 0,
                           padding: 4,
@@ -244,6 +257,7 @@ export default function ConversationSidebar({
                           role="button"
                           tabIndex={-1}
                           onClick={(e) => e.stopPropagation()}
+                          className="icon-btn"
                           style={{
                             flexShrink: 0,
                             padding: 4,

@@ -43,19 +43,20 @@ export default function Welcome({ onPick }: WelcomeProps) {
         style={{
           width: 64,
           height: 64,
-          borderRadius: 16,
+          borderRadius: 'var(--radius-lg)',
           background: 'linear-gradient(135deg,#34d399,#0d9488)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#fff',
-          boxShadow: '0 8px 24px rgba(16,185,129,0.25)',
+          boxShadow:
+            '0 0 0 6px rgba(16,185,129,0.10), 0 10px 30px rgba(16,185,129,0.30)',
         }}
       >
         <Sparkles size={32} />
       </div>
-      <div style={{ fontSize: 18, fontWeight: 600 }}>你好，我是 Copilot Agent</div>
-      <div style={{ fontSize: 13, color: '#6b7280', maxWidth: 460, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>你好，我是 Copilot Agent</div>
+      <div style={{ fontSize: 13, color: 'var(--md-muted)', maxWidth: 460, lineHeight: 1.7 }}>
         我可以理解你的自然语言指令，自动拆解步骤、调用平台 API 与系统工具完成任务，并实时展示推理与工具调用过程。
       </div>
 
