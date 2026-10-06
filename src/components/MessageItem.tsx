@@ -14,13 +14,15 @@ import {
   Table2,
   LayoutTemplate,
   Send,
+  Activity,
 } from 'lucide-react';
-import type { ChatMessage, Block } from '@/types';
+import type { ChatMessage, Block, A2UICommand } from '@/types';
 import { XMarkdown } from '@ant-design/x-markdown';
 import JsonView from './JsonView';
 import ApprovalCard from './ApprovalCard';
 import ChartBlock from './ChartBlock';
 import A2UICard, { getA2UISurfaceTitle } from './A2UICard';
+import DataResultView from './DataResultView';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { useIntl } from '@umijs/max';
 
@@ -121,7 +123,42 @@ function ResultView({ content }: { content?: string }) {
       </Card>
     );
   }
+  // 专用渲染（时序/波形工具结果 → 表格/统计/曲线），无法识别时回退 JsonView
+  const dataView = DataResultView({ value: parsed });
+  if (dataView) return dataView;
   return <JsonView value={parsed} />;
+}
+
+// ---------------- 最终回答美化：把 A2UI 命令 JSON 码块渲染成结构化卡片 ----------------
+// ```json\n[{type:"createSurface"...},...] ``` 这类码块若为后端 A2UI 命令，从 markdown 中摘出，
+// 用 A2UICard 渲染成结构化卡片（Statistic/Table/Chart 等），避免最终回答仍是大段纯文字 JSON。
+function splitA2UIJsonBlocks(md: string): { text: string; cards: A2UICommand[][] } {
+  const cards: A2UICommand[][] = [];
+  // parts 交替为 [文本, json, 文本, json, ...]
+  const parts = md.split(/```json[ \t]*\r?\n([\s\S]*?)```/g);
+  for (let i = 1; i < parts.length; i += 2) {
+    const raw = parts[i].trim();
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        parsed.every(
+          (c) =>
+            c &&
+            typeof c.type === 'string' &&
+            /^(createSurface|updateComponents|updateDataModel|deleteSurface)$/.test(c.type),
+        )
+      ) {
+        cards.push(parsed as A2UICommand[]);
+        parts[i] = ''; // 从最终回答文本中移除，改由卡片渲染
+      }
+    } catch {
+      /* 非法 JSON：保留原文码块 */
+    }
+  }
+  return { text: parts.join(''), cards };
 }
 
 const RISK_COLOR: Record<string, string> = { read: 'green', modify: 'orange', danger: 'red' };
@@ -304,11 +341,26 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
       return false;
     }
   };
+  // 设备数据结果（read_device_data / read_waveform / fft_spectrum）：提升为始终可见卡片
+  // （表格/趋势图/波形曲线/频谱图），不进折叠的"推理过程"，避免最终结果区仍是纯文字。
+  const isDataResult = (b: Block) => {
+    if (b.kind !== 'tool_result' || !b.resultContent) return false;
+    try {
+      const p = JSON.parse(b.resultContent);
+      return (
+        (Array.isArray(p?.messages) && p.messages.length > 0) ||
+        (p?.decoded === true && Array.isArray(p?.channels) && p.channels.length > 0) ||
+        (p?.fft && Array.isArray(p.fft.freq) && Array.isArray(p.fft.magnitude))
+      );
+    } catch {
+      return false;
+    }
+  };
   const chainItems = msg.blocks
     .filter(
       (b) =>
         ['thinking', 'tool_call', 'tool_result', 'approval_result'].includes(b.kind) &&
-        !(b.kind === 'tool_result' && isEntityResult(b)),
+        !(b.kind === 'tool_result' && (isEntityResult(b) || isDataResult(b))),
     )
     .map((b: Block) => {
       if (b.kind === 'thinking') {
@@ -370,8 +422,12 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
   );
   // 实体类工具结果：始终可见的精美表格卡片（设备/实体列表等）
   const entityBlocks = msg.blocks.filter((b) => isEntityResult(b));
+  // 设备数据结果（时序/波形）：始终可见卡片（表格 / 趋势图 / 波形曲线）
+  const dataBlocks = msg.blocks.filter((b) => isDataResult(b));
 
   const answerText = msg.streaming ? msg.streamingContent || '' : msg.content || '';
+  // 摘出最终回答里的 A2UI 命令 JSON 码块，渲染为结构化卡片，避免纯文本 JSON
+  const { text: cleanAnswer, cards: a2uiCards } = useMemo(() => splitA2UIJsonBlocks(answerText), [answerText]);
 
   const phase = msg.phase ? phaseMeta(msg.phase, token) : null;
 
@@ -428,6 +484,26 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
             </div>
           ))}
 
+          {/* 设备数据结果（时序/波形）：始终可见卡片（统计 / 趋势图 / 波形曲线），
+              不只在折叠的"推理过程"里显示 */}
+          {dataBlocks.map((b) => {
+            let parsed: unknown = null;
+            try {
+              parsed = JSON.parse(b.resultContent || '');
+            } catch {
+              /* ignore */
+            }
+            return (
+              <div key={b.id} className={cardClass}>
+                <div className={cardTitle}>
+                  <Activity size={15} color={token.colorPrimary} />
+                  {b.toolName || '设备数据结果'}
+                </div>
+                {parsed ? <DataResultView value={parsed} /> : <ResultView content={b.resultContent} />}
+              </div>
+            );
+          })}
+
           {/* 始终可见块：图表 / 待审批 / 错误 / A2UI 结构化卡片 */}
           {alwaysBlocks.map((b) => {
             if (b.kind === 'chart') {
@@ -480,11 +556,18 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
           {(msg.streaming || msg.content) && (
             <XMarkdown
               className="md-body"
-              content={answerText}
+              content={cleanAnswer}
               openLinksInNewTab
               streaming={msg.streaming ? { hasNextChunk: true, tail: true } : undefined}
             />
           )}
+
+          {/* 最终回答中的 A2UI 结构化卡片（原 JSON 码块不再以纯文本展示） */}
+          {a2uiCards.map((cmds, i) => (
+            <div key={`a2ui-md-${i}`} style={{ marginTop: 8 }}>
+              <A2UICard commands={cmds} />
+            </div>
+          ))}
 
           {/* 连接中断提示 */}
           {msg.disconnected && (

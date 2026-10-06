@@ -1,8 +1,8 @@
 import {defineConfig} from '@umijs/max';
 
-// 统一走远端 nginx 统一入口 http://192.168.1.14（不写端口）：/auth、/graphql、/copilot、/task、/health
+// 统一走远端 nginx 统一入口 http://192.168.1.9（不写端口）：/auth、/graphql、/copilot、/task、/health
 // 全部由 nginx 反代到后端各服务；前端不感知具体服务端口。
-const TARGET = 'http://192.168.1.14';
+const TARGET = 'http://192.168.1.9';
 
 // dev server 的 compression 中间件会把 SSE 流 gzip 缓冲，
 // 浏览器 fetch ReadableStream 收不到字节；用 no-transform 跳过压缩。

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { theme } from 'antd';
 import * as echarts from 'echarts';
 import { useIntl } from '@umijs/max';
@@ -23,28 +23,90 @@ function luminance(color: string): number {
   }
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v != null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** 深合并：extra（用户/后端 option）优先，base 仅作兜底；数组整体替换。 */
+function deepMerge(base: unknown, extra: unknown): unknown {
+  if (!isPlainObject(extra)) {
+    return extra === undefined ? base : extra;
+  }
+  const out: Record<string, unknown> = { ...(isPlainObject(base) ? base : {}) };
+  for (const k of Object.keys(extra)) {
+    const bv = out[k];
+    const ev = extra[k];
+    if (isPlainObject(ev) && isPlainObject(bv)) {
+      out[k] = deepMerge(bv, ev);
+    } else if (ev !== undefined) {
+      out[k] = ev;
+    }
+  }
+  return out;
+}
+
+function buildModernTheme(token: ReturnType<typeof theme.useToken>['token']): Record<string, unknown> {
+  const textColor = token.colorText;
+  const subText = token.colorTextSecondary;
+  const axisColor = token.colorBorderSecondary;
+  const splitColor = token.colorSplit;
+  const tooltipBg = token.colorBgElevated;
+  const palette = ['#5B8FF9', '#61DDAA', '#65789B', '#F6BD16', '#7262FD', '#78D3F8', '#9661BC', '#F6903D'];
+
+  return {
+    color: palette,
+    textStyle: { fontFamily: token.fontFamily || 'inherit', color: textColor },
+    tooltip: {
+      confine: true,
+      backgroundColor: tooltipBg,
+      borderColor: axisColor,
+      borderWidth: 1,
+      padding: [8, 12],
+      textStyle: { color: textColor, fontSize: 12 },
+      extraCssText: 'box-shadow: 0 4px 14px rgba(0,0,0,.14); border-radius: 6px;',
+    },
+    legend: { textStyle: { color: subText, fontSize: 12 } },
+    grid: { containLabel: true },
+    xAxis: {
+      axisLine: { lineStyle: { color: axisColor } },
+      axisTick: { lineStyle: { color: axisColor } },
+      axisLabel: { color: subText },
+      splitLine: { show: false },
+    },
+    yAxis: {
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: subText },
+      splitLine: { lineStyle: { color: splitColor, type: 'dashed' } },
+    },
+  };
+}
+
 /**
  * 自封装 ECharts React 组件：
  * - 自适应容器尺寸（ResizeObserver）
  * - setOption 抛错时降级为“图表渲染失败”占位
- * - 暗色适配：经 theme.useToken() 的 colorBgLayout 亮度判断（主题由 ConfigProvider algorithm 驱动）
  */
 export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
   const { token } = theme.useToken();
   const intl = useIntl();
-  // antd useToken 不暴露 isDark，用布局背景亮度近似判断，用于选择 echarts 暗色主题
   const isDark = luminance(token.colorBgLayout) < 0.5;
   const ref = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   type EChartsInst = ReturnType<typeof echarts.init>;
   const instRef = useRef<EChartsInst | null>(null);
 
+  const mergedOption = useMemo<Record<string, unknown>>(
+    () => deepMerge(buildModernTheme(token), option) as Record<string, unknown>,
+    [token, isDark, option],
+  );
+
   useEffect(() => {
     if (!ref.current) return;
     let inst: echarts.ECharts | null = null;
     try {
       inst = echarts.init(ref.current, isDark ? 'dark' : undefined);
-      inst.setOption(option as echarts.EChartsOption);
+      inst.setOption(mergedOption as echarts.EChartsOption);
       instRef.current = inst;
       setFailed(false);
     } catch {
@@ -86,7 +148,7 @@ export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
       }
       instRef.current = null;
     };
-  }, [option, isDark]);
+  }, [mergedOption, isDark]);
 
   if (failed) {
     return (
