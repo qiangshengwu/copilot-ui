@@ -564,6 +564,15 @@ button {
   padding: 10px 12px;
   margin-bottom: 12px;
 }
+/* ThoughtChain 的标题色来自其组件 token；暗色主题下显式跟随全局文本色 */
+.cp-process .ant-thought-chain-item,
+.cp-process .ant-thought-chain-item-title,
+.cp-process .ant-thought-chain-node-title {
+  color: var(--cp-text);
+}
+.cp-process .ant-thought-chain-item-title {
+  font-weight: 600;
+}
 
 .cp-error {
   display: flex;
