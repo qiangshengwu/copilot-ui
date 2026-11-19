@@ -1,8 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sender } from '@ant-design/x';
-import { Send } from 'lucide-react';
-import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { theme } from 'antd';
+import { Sparkles } from 'lucide-react';
 import { useIntl } from '@umijs/max';
 
 interface ComposerProps {
@@ -12,13 +10,16 @@ interface ComposerProps {
 }
 
 export default function Composer({ running, onSend, onStop }: ComposerProps) {
-  const { token } = theme.useToken();
   const intl = useIntl();
+  const fm = (id: string) => intl.formatMessage({ id });
   const [value, setValue] = useState('');
   const ref = useRef<{ focus: () => void } | null>(null);
 
   useEffect(() => {
-    if (!running) ref.current?.focus();
+    // 移动端不自动聚焦，避免一进页面就弹出软键盘
+    if (!running && typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches) {
+      ref.current?.focus();
+    }
   }, [running]);
 
   const submit = (text: string) => {
@@ -28,53 +29,27 @@ export default function Composer({ running, onSend, onStop }: ComposerProps) {
     onSend(t);
   };
 
-  const container = useEmotionCss(({ token }) => ({
-    // 输入框 absolute 悬浮在右栏底部：不占文档流，消息区（scrollRef）可滚到真正底部，
-    // 滚动条延伸到输入框之下，完整底部内容不被遮挡；容器透明，仅保留输入卡片。
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-    padding: '8px 16px 14px',
-    background: 'transparent',
-  }));
-
   return (
-    <div className={container}>
-      {/* 只保留聊天输入框：外层实体背景（不透明，悬浮在消息之上不透出底层），
-          无底部说明文字与额外卡片 */}
-      <div
-        style={{
-          maxWidth: 900,
-          margin: '0 auto',
-          background: token.colorBgContainer,
-          border: `1px solid ${token.colorBorder}`,
-          // 大圆角（更圆、更接近胶囊）+ 降低阴影（用更弱的 boxShadowTertiary）
-          borderRadius: 32,
-          boxShadow: token.boxShadowTertiary,
-        }}
-      >
-        <Sender
-          ref={ref as never}
-          value={value}
-          onChange={setValue}
-          onSubmit={submit}
-          loading={running}
-          onCancel={onStop}
-          disabled={running}
-          placeholder={
-            running
-              ? intl.formatMessage({ id: 'copilot.composer.running.placeholder' })
-              : intl.formatMessage({ id: 'copilot.composer.placeholder' })
-          }
-          autoSize={{ minRows: 1, maxRows: 6 }}
-          prefix={<Send size={15} style={{ color: token.colorTextSecondary }} />}
-          style={{
-            borderRadius: 28,
-            boxShadow: running ? `0 0 0 2px ${token.colorWarningBg}` : 'none',
-          }}
-        />
+    <div className={`cp-composer-card${running ? ' is-running' : ''}`}>
+      <Sender
+        ref={ref as never}
+        value={value}
+        onChange={setValue}
+        onSubmit={submit}
+        loading={running}
+        onCancel={onStop}
+        disabled={running}
+        placeholder={running ? fm('copilot.composer.running.placeholder') : fm('copilot.composer.placeholder')}
+        autoSize={{ minRows: 1, maxRows: 7 }}
+        prefix={<Sparkles size={15} />}
+        style={{ borderRadius: 16, background: 'transparent', boxShadow: 'none', border: 'none' }}
+      />
+      <div className="cp-composer-meta">
+        <span>{running ? fm('copilot.composer.running.hint') : fm('copilot.composer.disclaimer')}</span>
+        <span>
+          <kbd>Enter</kbd> {fm('copilot.composer.send')} · <kbd>Shift</kbd>+<kbd>Enter</kbd>{' '}
+          {fm('copilot.composer.newline')}
+        </span>
       </div>
     </div>
   );

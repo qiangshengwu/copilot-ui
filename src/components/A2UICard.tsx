@@ -180,7 +180,7 @@ const TableComponent: React.FC<{
       size="small"
       columns={columns as never}
       dataSource={data}
-      rowKey={rowKey || ((_, i) => String(i))}
+      rowKey={rowKey || ((record: any) => String(record?.id ?? record?.name ?? JSON.stringify(record)).slice(0, 120))}
       pagination={false}
     />
   );

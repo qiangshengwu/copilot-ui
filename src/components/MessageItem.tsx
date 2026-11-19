@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from 'react';
-import { Bubble, ThoughtChain } from '@ant-design/x';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { ThoughtChain } from '@ant-design/x';
 import { Avatar, Table, Tag, Badge, Card, theme } from 'antd';
 import {
   User,
@@ -7,7 +7,9 @@ import {
   Brain,
   Wrench,
   Package,
+  Check,
   CheckCircle2,
+  Copy,
   XCircle,
   AlertTriangle,
   ChartLine,
@@ -118,7 +120,7 @@ function ResultView({ content }: { content?: string }) {
       >
         <Table
           size="small"
-          rowKey={(_, i) => String(i)}
+          rowKey={(record: any) => String(record?.id ?? record?.externalId ?? record?.name ?? '')}
           dataSource={items}
           columns={columns as never}
           pagination={false}
@@ -320,21 +322,40 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
   // 过程折叠：用户点击控制展开；流式期间自动展开当前最后一步
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
+  // 流式结束后默认收起过程，避免大段 JSON 长期占据首屏
+  useEffect(() => {
+    if (!msg.streaming) setOpenKeys([]);
+  }, [msg.streaming]);
+
+  // 复制回答（放在早期 return 之前，保证 hooks 顺序稳定）
+  const [copied, setCopied] = useState(false);
+  const copyAnswer = async () => {
+    const text = msg.content || msg.streamingContent || '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard 不可用时静默 */
+    }
+  };
+
   // ---------- 用户消息 ----------
   if (msg.role === 'user') {
     return (
-      <Bubble
-        placement="end"
-        content={msg.content}
-        avatar={<Avatar size={28} icon={<User size={16} />} style={{ background: token.colorFill }} />}
-        variant="filled"
-      />
+      <div className="cp-msg cp-msg-user cp-fade-up">
+        <div className="cp-msg-user-bubble">{msg.content}</div>
+        <Avatar
+          size={30}
+          className="cp-msg-avatar"
+          icon={<User size={15} />}
+          style={{ background: token.colorFill, color: token.colorTextSecondary }}
+        />
+      </div>
     );
   }
 
-  const botAvatar = (
-    <Avatar size={28} icon={<Bot size={16} />} style={{ background: token.colorPrimary }} />
-  );
 
   // ---------- 助手消息：把 blocks 转成 ThoughtChain items ----------
   // 实体类工具结果（可渲染为表格）提升为始终可见卡片，不进 ThoughtChain 折叠，避免重复。
@@ -420,7 +441,9 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
         title: b.approved ? fm('copilot.msg.approved') : fm('copilot.msg.rejected'),
         status: (b.approved ? 'success' : 'error') as 'success' | 'error',
       };
-    });
+    })
+    // 默认折叠：只展示步骤标题，展开后才显示 JSON/长文本
+    .map((item) => ({...item, collapsible: true}));
 
   // 始终可见的块（chart / approval_pending / error / a2ui）
   const alwaysBlocks = msg.blocks.filter(
@@ -438,51 +461,44 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
   const phase = msg.phase ? phaseMeta(msg.phase, token) : null;
 
   return (
-    <Bubble
-      placement="start"
-      avatar={botAvatar}
-      variant="borderless"
-      content={
-        <div style={{ minWidth: 0 }}>
-          {/* phase 状态徽标：带语义图标小药丸 */}
+    <article className="cp-msg cp-msg-assistant cp-fade-up">
+      <Avatar
+        size={30}
+        className="cp-msg-avatar"
+        icon={<Bot size={15} />}
+        style={{ background: 'linear-gradient(135deg, #6d6af0, #9a7bf5)' }}
+      />
+      <div className="cp-msg-body">
+        <div className="cp-msg-head">
+          <span className="cp-msg-name">Copilot</span>
           {phase && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                marginBottom: 10,
-                padding: '3px 11px',
-                borderRadius: 999,
-                border: `1px solid ${token.colorBorderSecondary}`,
-                background: phase.bg,
-                fontSize: 12,
-                fontWeight: 500,
-                color: phase.color,
-              }}
-            >
-              <phase.Icon size={12} />
-              {msg.phaseBusy && <span className={spinDot} />}
+            <span className="cp-phase" style={{ color: phase.color, background: phase.bg }}>
+              <phase.Icon size={11} />
+              {msg.phaseBusy && <span className="cp-spin" />}
               {msg.phase}
-            </div>
+            </span>
           )}
+        </div>
 
           {/* 过程：ThoughtChain（随开关隐藏；默认折叠，流式时展开当前步） */}
           {showProcess && chainItems.length > 0 && (
-            <ThoughtChain
-              items={chainItems}
-              expandedKeys={msg.streaming
-                ? Array.from(new Set([...openKeys, chainItems[chainItems.length - 1].key]))
-                : openKeys}
-              onExpand={setOpenKeys}
-              style={{ marginBottom: 12 }}
-            />
+            <div className="cp-process">
+              <ThoughtChain
+                items={chainItems}
+                expandedKeys={
+                  msg.streaming
+                    ? Array.from(new Set([...openKeys, chainItems[chainItems.length - 1].key]))
+                    : openKeys
+                }
+                onExpand={setOpenKeys}
+              />
+            </div>
           )}
 
           {/* 实体类工具结果：始终可见的精美表格卡片（设备/实体列表等） */}
           {entityBlocks.map((b) => (
-            <div key={b.id} className={cardClass}>
-              <div className={cardTitle}>
+            <div key={b.id} className="cp-result-card">
+              <div className="cp-result-head">
                 <Table2 size={15} color={token.colorPrimary} />
                 {b.toolName || fm('copilot.msg.entity.list')}
               </div>
@@ -500,8 +516,8 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
               /* ignore */
             }
             return (
-              <div key={b.id} className={cardClass}>
-                <div className={cardTitle}>
+              <div key={b.id} className="cp-result-card">
+                <div className="cp-result-head">
                   <Activity size={15} color={token.colorPrimary} />
                   {b.toolName || '设备数据结果'}
                 </div>
@@ -514,8 +530,8 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
           {alwaysBlocks.map((b) => {
             if (b.kind === 'chart') {
               return (
-                <div key={b.id} className={cardClass}>
-                  <div className={cardTitle}>
+                <div key={b.id} className="cp-result-card">
+                  <div className="cp-result-head">
                     <ChartLine size={15} color={token.colorPrimary} />
                     {b.chartTitle || fm('copilot.msg.chart')}
                   </div>
@@ -529,8 +545,8 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
             }
             if (b.kind === 'a2ui') {
               return (
-                <div key={b.id} className={cardClass}>
-                  <div className={cardTitle}>
+                <div key={b.id} className="cp-result-card">
+                  <div className="cp-result-head">
                     <LayoutTemplate size={15} color={token.colorPrimary} />
                     {getA2UISurfaceTitle(b.a2uiCommands) || fm('copilot.msg.structured')}
                   </div>
@@ -553,7 +569,7 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
             }
             // error
             return (
-              <div key={b.id} className={errorBox}>
+              <div key={b.id} className="cp-error">
                 <AlertTriangle size={14} style={{ marginTop: 2 }} />
                 {b.errorText || fm('copilot.msg.unknown.error')}
               </div>
@@ -582,7 +598,7 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
           {/* 连接中断提示 */}
           {msg.disconnected && (
             <div
-              className={errorBox}
+              className="cp-error"
               style={{
                 marginTop: 8,
                 fontWeight: 500,
@@ -595,9 +611,14 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
               {fm('copilot.msg.disconnected')}
             </div>
           )}
+        <div className="cp-msg-actions">
+          <button type="button" className="cp-action-btn" onClick={copyAnswer} disabled={!answerText}>
+            {copied ? <Check size={12} /> : <Copy size={12} />}
+            {copied ? fm('copilot.msg.copied') : fm('copilot.msg.copy')}
+          </button>
         </div>
-      }
-    />
+      </div>
+    </article>
   );
 }
 

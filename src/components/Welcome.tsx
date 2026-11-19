@@ -1,7 +1,4 @@
-import { Prompts } from '@ant-design/x';
-import { Sparkles, Building2, ChartLine, ShieldCheck, Terminal } from 'lucide-react';
-import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { theme } from 'antd';
+import { ArrowRight, Building2, ChartLine, ShieldCheck, Sparkles, Terminal } from 'lucide-react';
 import { useIntl } from '@umijs/max';
 
 interface WelcomeProps {
@@ -9,98 +6,81 @@ interface WelcomeProps {
 }
 
 export default function Welcome({ onPick }: WelcomeProps) {
-  const { token } = theme.useToken();
   const intl = useIntl();
   const fm = (id: string) => intl.formatMessage({ id });
 
   const CAPS = [
-    { icon: <Building2 size={14} />, label: fm('copilot.welcome.cap.tenant') },
-    { icon: <ChartLine size={14} />, label: fm('copilot.welcome.cap.data') },
-    { icon: <ShieldCheck size={14} />, label: fm('copilot.welcome.cap.admin') },
-    { icon: <Terminal size={14} />, label: fm('copilot.welcome.cap.system') },
+    { icon: <Building2 size={16} />, title: fm('copilot.welcome.cap.tenant'), desc: fm('copilot.welcome.cap.tenant.desc') },
+    { icon: <ChartLine size={16} />, title: fm('copilot.welcome.cap.data'), desc: fm('copilot.welcome.cap.data.desc') },
+    { icon: <ShieldCheck size={16} />, title: fm('copilot.welcome.cap.admin'), desc: fm('copilot.welcome.cap.admin.desc') },
+    { icon: <Terminal size={16} />, title: fm('copilot.welcome.cap.system'), desc: fm('copilot.welcome.cap.system.desc') },
   ];
 
   const SAMPLES = [
-    { key: 's1', label: fm('copilot.welcome.sample.count') },
-    { key: 's2', label: fm('copilot.welcome.sample.alarm') },
-    { key: 's3', label: fm('copilot.welcome.sample.trend') },
+    fm('copilot.welcome.sample.count'),
+    fm('copilot.welcome.sample.alarm'),
+    fm('copilot.welcome.sample.trend'),
   ];
 
-  const heroIcon = useEmotionCss(({ token }) => ({
-    width: 64,
-    height: 64,
-    borderRadius: token.borderRadiusLG,
-    background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    boxShadow: `0 0 0 6px ${token.colorPrimaryBg}, 0 10px 30px ${token.colorPrimaryBg}`,
-  }));
-
-  // 让两个 Prompts 区块在换行时也整体居中：
-  // 通过官方 classNames API 设置 items 容器 justify-content center（换行胶囊居中）
-  // 与标题 textAlign center。
-  const promptsList = useEmotionCss(() => ({
-    display: 'flex',
-    justifyContent: 'center',
-  }));
-  const promptsTitle = useEmotionCss(() => ({
-    textAlign: 'center',
-  }));
-
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        gap: 14,
-        padding: '24px 16px',
-        margin: 'auto',
-      }}
-    >
-      <div className={heroIcon}>
-        <Sparkles size={32} />
-      </div>
-      <div style={{ fontSize: 18, fontWeight: 600, color: token.colorText }}>
-        {fm('copilot.welcome.title')}
+    <section className="cp-welcome cp-fade-up">
+      <div className="cp-welcome-mark">
+        <Sparkles size={27} />
       </div>
       <div
         style={{
-          fontSize: 13,
-          color: token.colorTextSecondary,
-          maxWidth: 460,
-          lineHeight: 1.7,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          alignSelf: 'center',
+          padding: '4px 10px',
+          borderRadius: 999,
+          border: '1px solid var(--cp-border-soft)',
+          background: 'var(--cp-surface)',
+          color: 'var(--cp-muted)',
+          fontSize: 10.5,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          marginBottom: 14,
         }}
       >
-        {fm('copilot.welcome.desc')}
+        <span className="cp-spin" style={{ color: 'var(--cp-primary)' }} />
+        {fm('copilot.welcome.badge')}
       </div>
 
-      <Prompts
-        classNames={{ list: promptsList, title: promptsTitle }}
-        title={fm('copilot.welcome.i.can.help')}
-        wrap
-        items={CAPS.map((c, i) => ({ key: `c${i}`, icon: c.icon, label: c.label, disabled: true }))}
-        style={{ maxWidth: 560, marginTop: 8 }}
-      />
+      <h1>
+        {fm('copilot.welcome.titlePrefix')} <em>{fm('copilot.welcome.titleAccent')}</em>
+      </h1>
+      <p className="cp-welcome-desc">{fm('copilot.welcome.desc')}</p>
 
-      <Prompts
-        classNames={{ list: promptsList, title: promptsTitle }}
-        title={fm('copilot.welcome.try')}
-        wrap
-        items={SAMPLES.map((s) => ({ key: s.key, label: s.label }))}
-        onItemClick={(info) => {
-          const label =
-            (info as { data?: { label?: unknown } } | undefined)?.data?.label ??
-            (info as { label?: unknown } | undefined)?.label;
-          if (typeof label === 'string' && label.trim()) onPick(label);
-        }}
-        style={{ maxWidth: 560 }}
-      />
-    </div>
+      <div className="cp-cap-grid">
+        {CAPS.map((c) => (
+          <div className="cp-cap-card" key={c.title}>
+            <div className="cp-cap-icon">{c.icon}</div>
+            <div>
+              <div className="cp-cap-title">{c.title}</div>
+              <div className="cp-cap-desc">{c.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="cp-samples">
+        <div className="cp-samples-label">{fm('copilot.welcome.try')}</div>
+        {SAMPLES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className="cp-sample"
+            onClick={() => onPick(s)}
+            aria-label={s}
+          >
+            <span>{s}</span>
+            <ArrowRight size={14} />
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
