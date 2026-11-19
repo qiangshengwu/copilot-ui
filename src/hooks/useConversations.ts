@@ -23,7 +23,7 @@ function toRenderMessages(list: HistoryMessage[]): ChatMessage[] {
     id: h.id,
     role: h.role === 'user' ? 'user' : 'assistant',
     content: h.content || '',
-    blocks: (h.blocks as Block[]) || [],
+    blocks: Array.isArray(h.blocks) ? (h.blocks as Block[]) : [],
   }));
 }
 
@@ -49,6 +49,7 @@ export function useConversations({ chat, runningRef }: Options) {
   const PAGE_SIZE = 50;
   const listInf = useInfiniteQuery({
     queryKey: ['copilot-conversations', tenantId],
+    enabled: !!tenantId,
     queryFn: ({ pageParam }) =>
       copilotClient()
         .get('/{workspaceID}/copilot/conversations', {
@@ -71,21 +72,30 @@ export function useConversations({ chat, runningRef }: Options) {
   const loadingMore = listInf.isFetchingNextPage;
 
   // ---------- 打开会话 ----------
+  // 用递增序号丢弃过期响应：A→B 快速切换时，A 的慢响应不能覆盖 B。
+  const openSeqRef = useRef(0);
   const openConversation = useCallback(
     async (id: string) => {
+      if (!tenantId) return;
+      const seq = ++openSeqRef.current;
       setOpenLoading(true);
       try {
         const page = await copilotClient().get('/{workspaceID}/copilot/conversations/{id}/messages', {
           params: { path: { workspaceID: tenantId, id } },
         });
+        if (seq !== openSeqRef.current) return;
         const resp = page.data as unknown as MessageListResp;
         chat.setMessages(toRenderMessages(resp?.messages || []));
         setActiveConvIdState(id);
         chat.setAutoApprove(false);
+        chat.finishedRef.current = false;
+        chat.pendingToolRef.current = [];
       } catch (e) {
-        console.warn('[copilot] open conversation failed:', e);
+        if (seq === openSeqRef.current) {
+          console.warn('[copilot] open conversation failed:', e);
+        }
       } finally {
-        setOpenLoading(false);
+        if (seq === openSeqRef.current) setOpenLoading(false);
       }
     },
     [chat, tenantId],
@@ -95,12 +105,14 @@ export function useConversations({ chat, runningRef }: Options) {
   const bootRef = useRef(false);
   useEffect(() => {
     if (bootRef.current) return;
-    if (!listInf.data) return;
+    if (!listInf.data || !tenantId) return;
     bootRef.current = true;
     setBooted(true);
+    // 用户已经开始新对话/正在运行时，不要用列表第一条覆盖当前界面
+    if (runningRef.current || activeConvIdRef.current || chat.messages.length > 0) return;
     const convs = listInf.data?.pages?.[0]?.conversations || [];
     if (convs.length > 0) void openConversation(convs[0].id);
-  }, [listInf.data, openConversation]);
+  }, [listInf.data, openConversation, tenantId, chat.messages.length, runningRef]);
 
   // ---------- mutations（onSuccess 刷新列表） ----------
   const createReq = useRequest(
@@ -206,7 +218,7 @@ export function useConversations({ chat, runningRef }: Options) {
   /** 发送流程中创建会话后，同步激活 */
   const setActiveConvId = useCallback((id: string) => setActiveConvIdState(id), []);
 
-  const convLoading = openLoading || (!booted && listLoading);
+  const convLoading = openLoading || (!booted && listLoading && !!tenantId);
 
   return {
     conversations,
@@ -225,9 +237,11 @@ export function useConversations({ chat, runningRef }: Options) {
     hasMore,
     loadingMore,
     createConversation: async (title: string) => {
+      if (!tenantId) throw new Error(T('租户未就绪', 'Tenant not ready'));
       // openapi-fetch 返回 { data, error }，业务体在 data（含 id）；取 data 供调用方直接用 conv.id
       const res = (await createReq.run(title)) as { data?: { id: string } };
-      return res?.data as { id: string };
+      if (!res?.data?.id) throw new Error(T('创建会话失败', 'Failed to create conversation'));
+      return res.data;
     },
   };
 }

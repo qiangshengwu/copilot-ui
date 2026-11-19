@@ -119,17 +119,23 @@ export interface paths {
         /**
          * Subscribe to a task's SSE event stream
          * @description Opens a Server-Sent-Events connection for a task and starts it.
+         *     A task can be started only once: a second subscription returns `409`
+         *     instead of re-executing the task (important for `modify`/`danger` tools).
          *     Events are JSON lines prefixed with `data: ` and separated by blank
          *     lines, with the shape:
          *     `{"type": <event>, "task_id": "...", "data": {...}}`.
          *
          *     Event types:
          *     - `task_created` / `task_started`: task lifecycle
-         *     - `step` (data.type in thinking | tool_call | tool_result | approval | final):
+         *     - `step` (data.type in thinking | tool_call | tool_result | approval | final | a2ui):
          *       reasoning chunks, tool calls, tool results, approval steps and the
          *       final answer
          *     - `approval`: asks for human approval of a risky tool call
          *     - `done` / `failed` / `cancelled`: terminal states
+         *
+         *     The server closes the connection after a terminal event
+         *     (`done` / `failed` / `cancelled`). Use `GET /task/{id}` to read the
+         *     final state and execution steps afterwards.
          */
         get: operations["streamTask"];
         put?: never;
@@ -366,14 +372,17 @@ export interface components {
              * @example tool_call
              * @enum {string}
              */
-            type?: "thinking" | "tool_call" | "approval" | "tool_result" | "final";
+            type?: "thinking" | "tool_call" | "approval" | "tool_result" | "final" | "a2ui";
             /** @description Step index */
             step?: number;
             /** @description Tool name (for tool_call / tool_result) */
             tool_name?: string;
             /** @description Tool call arguments (free-form JSON) */
             params?: Record<string, never>;
-            /** @description Chunk text (thinking / final) */
+            /**
+             * @description Chunk text (thinking / final); for `a2ui` it is the validated JSON
+             *     command array (see apidocs/a2ui.md).
+             */
             content?: string;
             /**
              * @description Risk level of a tool call
@@ -434,8 +443,9 @@ export interface components {
             task_id?: string;
             /**
              * @description Event payload. For `step` it carries `type` (thinking / tool_call /
-             *     tool_result / approval / final) plus the step fields; for `approval`
-             *     it carries the pending tool call; for terminal events it is omitted.
+             *     tool_result / approval / final / a2ui) plus the step fields; for
+             *     `approval` it carries the pending tool call; for terminal events it
+             *     is omitted.
              */
             data?: Record<string, never>;
         };
@@ -955,6 +965,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Too many task creations for this user (see LT_COPILOT_RATE_TASK_PER_MINUTE). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             500: components["responses"]["ServiceError"];
         };
     };
@@ -995,8 +1012,18 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Task not found. */
+            /** @description Task not found (or not owned by the current user/tenant). */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /**
+             * @description The task has already been started (repeated subscription), or its
+             *     state no longer allows starting. Read `GET /task/{id}` instead.
+             */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

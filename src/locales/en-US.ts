@@ -1,4 +1,13 @@
 export default {
+  // login
+  'copilot.login.title': 'Sign in to Copilot',
+  'copilot.login.subtitle': 'Sign in with your platform account to continue',
+  'copilot.login.identifier': 'Account',
+  'copilot.login.password': 'Password',
+  'copilot.login.submit': 'Sign in',
+  'copilot.login.required': 'Account and password are required',
+  'copilot.login.failed': 'Sign-in failed, please check your account and password',
+  'copilot.login.noTenant': 'No tenant is available for this account. Contact your administrator.',
   'copilot.app.console': 'Console',
   // conversations
   'copilot.conversation.new': 'New Chat',

@@ -22,6 +22,9 @@ export function useChatState() {
   const pendingToolRef = useRef<PendingTool[]>([]);
   const finishedRef = useRef(false);
   const finalAnswerRef = useRef('');
+  // 供 SSE 回调读取最新 autoApprove：state 在闭包里会过期
+  const autoApproveRef = useRef(autoApprove);
+  autoApproveRef.current = autoApprove;
 
   // ---------- final 事件 rAF 节流 ----------
   const rafRef = useRef<number | null>(null);
@@ -34,6 +37,10 @@ export function useChatState() {
     }
   }, []);
 
+  const clearPendingFinal = useCallback(() => {
+    pendingFinalRef.current = '';
+  }, []);
+
   // 卸载时取消挂起的帧，避免对已卸载组件 setState
   useEffect(() => cancelFinalRaf, [cancelFinalRaf]);
 
@@ -43,11 +50,24 @@ export function useChatState() {
     setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)));
   }, []);
 
+  const updateById = useCallback((id: string | null, fn: (m: ChatMessage) => ChatMessage) => {
+    if (!id) return;
+    setMessages((prev) => prev.map((m) => (m.id === id ? fn(m) : m)));
+  }, []);
+
   const appendBlock = useCallback(
     (block: Block) => {
       updateCur((m) => ({ ...m, blocks: [...m.blocks, block] }));
     },
     [updateCur],
+  );
+
+  /** 按消息 id 追加块：用于 finish() 之后（curMsgIdRef 已清空）的断线/轮询收尾。 */
+  const appendBlockById = useCallback(
+    (id: string | null, block: Block) => {
+      updateById(id, (m) => ({ ...m, blocks: [...m.blocks, block] }));
+    },
+    [updateById],
   );
 
   const patchBlock = useCallback(
@@ -60,7 +80,15 @@ export function useChatState() {
     [updateCur],
   );
 
-  const resetMessages = useCallback(() => setMessages([]), []);
+  const resetMessages = useCallback(() => {
+    cancelFinalRaf();
+    pendingFinalRef.current = '';
+    curMsgIdRef.current = null;
+    pendingToolRef.current = [];
+    finishedRef.current = false;
+    finalAnswerRef.current = '';
+    setMessages([]);
+  }, [cancelFinalRaf]);
 
   const appendMessages = useCallback(
     (list: ChatMessage[]) => setMessages((prev) => [...prev, ...list]),
@@ -116,15 +144,19 @@ export function useChatState() {
     finishedRef,
     finalAnswerRef,
     autoApprove,
+    autoApproveRef,
     setAutoApprove,
     updateCur,
+    updateById,
     appendBlock,
+    appendBlockById,
     patchBlock,
     resetMessages,
     appendMessages,
     scheduleFinal,
     flushFinalSync,
     cancelFinalRaf,
+    clearPendingFinal,
   };
 }
 

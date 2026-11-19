@@ -1,90 +1,48 @@
-import { getLogin, delLogin } from '@/utils/token';
 import { message } from 'antd';
 import { getLocale } from '@umijs/max';
+import { authFetch, HttpError } from './http';
 
-const originalFetch = window.fetch;
+const T = (zh: string, en: string) =>
+  getLocale().toLowerCase().startsWith('zh') ? zh : en;
 
-/** 中英切换辅助：静态错误提示文案 */
-const zhNow = () => getLocale().toLowerCase().startsWith('zh');
-const T = (zh: string, en: string) => (zhNow() ? zh : en);
-
-if (!originalFetch) {
-  throw new Error(T('当前环境不支持 fetch，请使用 polyfill', 'fetch is not supported in this environment, please use a polyfill'));
-}
-
-class FetchError extends Error {
-  public errorCode: number;
-  public response?: Response;
-
-  constructor(errorCode: number, message: string, response?: Response) {
-    super(message);
-    this.name = 'FetchError';
-    this.errorCode = errorCode;
-    this.response = response;
+/**
+ * openapi-fetch 的 fetch 适配器：
+ * - 鉴权/401 统一交给 authFetch（401 时 LoginGate 会切回登录页）；
+ * - 403/409 给出业务提示；
+ * - 非 2xx 抛 HttpError，由调用方决定是否展示。
+ */
+export const interceptorFetch = async (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> => {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  if (
+    init?.body &&
+    !(init.body instanceof FormData) &&
+    !(init.body instanceof ReadableStream) &&
+    !headers.has('Content-Type')
+  ) {
+    headers.set('Content-Type', 'application/json');
   }
-}
+  const response = await authFetch(input, {...init, headers});
 
-export const interceptorFetch = async (...args: any[]) => {
-  let [resource, options = {}] = args;
-
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    ...options.headers,
-  };
-
-  const login = getLogin();
-  if (login && login.token) {
-    headers.Authorization = `Bearer ${login.token}`;
+  if (response.status === 403) {
+    message.error(T('没有权限访问该资源', 'You do not have permission to access this resource'));
   }
-
-  const isFormData = options.body instanceof FormData;
-  const isStream = options.body instanceof ReadableStream;
-
-  if (!isFormData && !isStream && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
+  if (response.status === 409) {
+    message.error(T('请求冲突', 'Request conflict'));
   }
-
-  const authOptions: RequestInit = {
-    ...options,
-    headers,
-  };
-
-  try {
-    const response = await originalFetch(resource, authOptions);
-
-    if (response.status === 401) {
-      // 内嵌平台、无独立登录页：不跳登录页（避免破坏宿主）。
-      // token 过期时清除本地 token 并触发一次自动重登（getInitialState 会重新登录）；
-      // 用 sessionStorage 标记防抖，避免连续 401 反复 reload 死循环。
-      delLogin();
-      if (typeof window !== 'undefined' && !sessionStorage.getItem('copilot_auth_reloading')) {
-        sessionStorage.setItem('copilot_auth_reloading', '1');
-        window.location.reload();
-      }
-      throw new FetchError(401, T('未登录或登录已过期', 'Not logged in or session expired'), response);
+  if (!response.ok) {
+    let detail = response.statusText;
+    try {
+      // 只读取一次；业务层若还需要 body，可从 HttpError.response 重新 clone（部分实现不支持）。
+      const text = await response.clone().text();
+      if (text) detail = `${response.statusText} ${text.slice(0, 200)}`;
+    } catch {
+      /* ignore */
     }
-
-    if (response.status === 403) {
-      message.error(T('没有权限访问该资源', 'You do not have permission to access this resource'));
-    }
-
-    if (response.status === 409) {
-      message.error(T('请求冲突', 'Request conflict'));
-    }
-
-    if (!response.ok) {
-      throw new FetchError(response.status, response.statusText || T('请求失败', 'Request failed'), response);
-    }
-
-    return response;
-  } catch (error: any) {
-    console.error('fetch 请求异常:', error);
-
-    // 只在非自定义错误时提示
-    if (!(error instanceof FetchError)) {
-      message.error(T('网络异常，请稍后重试', 'Network error, please try again later'));
-    }
-
-    throw error;
+    throw new HttpError(response.status, detail || T('请求失败', 'Request failed'), response);
   }
+  return response;
 };

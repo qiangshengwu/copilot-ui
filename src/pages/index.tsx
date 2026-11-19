@@ -2,6 +2,8 @@ import {useEffect, useRef, useState} from 'react';
 import {ConfigProvider, Splitter} from 'antd';
 import {XProvider} from '@ant-design/x';
 import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
+import { getLocale } from '@umijs/max';
 import {useChatState} from '@/hooks/useChatState';
 import {useConversations} from '@/hooks/useConversations';
 import {useTask} from '@/hooks/useTask';
@@ -12,6 +14,7 @@ import MessageItem from "@/components/MessageItem";
 import Welcome from "@/components/Welcome";
 import Composer from "@/components/Composer";
 import BasePage from "@/components/BasePage";
+import LoginGate from "@/components/LoginGate";
 
 export default function HomePage() {
     const chat = useChatState();
@@ -46,9 +49,11 @@ export default function HomePage() {
 
     // 只提供中文 locale，不再定制主题 token：组件统一 useToken 取宿主/框架 token，
     // 深浅主题由框架层面统一调整（内嵌平台时跟随宿主）。
+    const antdLocale = getLocale().toLowerCase().startsWith('zh') ? zhCN : enUS;
     return (
-        <ConfigProvider locale={zhCN}>
-            <XProvider locale={zhCN}>
+        <ConfigProvider locale={antdLocale}>
+            <XProvider locale={antdLocale}>
+                <LoginGate>
                 <BasePage breadcrumb={false}>
                 <Splitter style={{width: '100%', height: '100%', flex: 1}}>
                     <Splitter.Panel defaultSize={240} min={180} max={380} collapsible={{showCollapsibleIcon: true}}>
@@ -136,6 +141,7 @@ export default function HomePage() {
                     </Splitter.Panel>
                 </Splitter>
                 </BasePage>
+                </LoginGate>
             </XProvider>
         </ConfigProvider>
     );

@@ -103,11 +103,14 @@ function TimeSeriesMessages({ value }: { value: any }) {
   const intl = useIntl();
   const fm = (id: string) => intl.formatMessage({ id });
 
-  const msgs: any[] = Array.isArray(value?.messages) ? value.messages : [];
+  const msgs = useMemo<any[]>(
+    () => (Array.isArray(value?.messages) ? value.messages : []),
+    [value],
+  );
   const stats = value?.stats;
 
   // 数值型时序点（value 为数值、非波形文件）→ 趋势图
-  const numeric = msgs.filter((m) => typeof m.value === 'number');
+  const numeric = useMemo(() => msgs.filter((m) => typeof m.value === 'number'), [msgs]);
   const chartOption = useMemo(() => {
     const bc = value?.chart;
     if (bc && typeof bc.option === 'object' && bc.option) return bc.option;
@@ -205,7 +208,7 @@ function TimeSeriesMessages({ value }: { value: any }) {
         scroll={{ x: 760 }}
       />
       <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 4 }}>
-        {fm('copilot.msg.total.count')} {msgs.length}
+        {intl.formatMessage({ id: 'copilot.msg.total.count' }, { n: msgs.length })}
       </div>
     </div>
   );
@@ -259,6 +262,15 @@ function buildTrendChart(points: any[]): Record<string, unknown> | null {
 }
 
 /** 识别波形 / 时序 / 频谱结果并渲染；无法识别返回 null（由上层回退 JsonView）。 */
+/** 判断是否为 DataResultView 支持的三种结构（供调用方决定是否渲染，避免条件 hooks）。 */
+export function canRenderDataResult(value: any): boolean {
+  if (!value || typeof value !== 'object') return false;
+  if (value.decoded && Array.isArray(value.channels)) return true;
+  if (value.fft && Array.isArray(value.fft.freq)) return true;
+  if (Array.isArray(value.messages) && value.messages.length > 0) return true;
+  return false;
+}
+
 export default function DataResultView({ value }: { value: any }) {
   if (!value || typeof value !== 'object') return null;
   if (value.decoded === true && Array.isArray(value.channels)) {

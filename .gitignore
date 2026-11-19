@@ -7,3 +7,7 @@ node_modules/
 
 src/.umi/
 src/.umi-production/
+# 本地运行/调试产物
+agent-audit.jsonl
+docs/probe-*
+.DS_Store

@@ -1,5 +1,5 @@
 import { print, type DocumentNode } from 'graphql';
-import { getLogin } from '@/utils/token';
+import { authFetch } from '@/services/http';
 
 export type GraphqlError = {
   message: string;
@@ -63,15 +63,10 @@ export async function graphqlClient<TData, TVariables = Record<string, unknown>>
   signal,
 }: GraphqlRequest<TVariables>): Promise<TData> {
   const queryString = typeof query === 'string' ? query : print(query);
-  const login = getLogin();
 
-  const response = await fetch('/graphql', {
+  const response = await authFetch('/graphql', {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      ...(login?.token ? { authorization: `Bearer ${login.token}` } : {}),
-    },
-    credentials: 'same-origin',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ query: queryString, variables, operationName }),
     signal,
   });

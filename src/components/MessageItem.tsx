@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Bubble, ThoughtChain } from '@ant-design/x';
 import { Avatar, Table, Tag, Badge, Card, theme } from 'antd';
 import {
@@ -22,9 +22,15 @@ import JsonView from './JsonView';
 import ApprovalCard from './ApprovalCard';
 import ChartBlock from './ChartBlock';
 import A2UICard, { getA2UISurfaceTitle } from './A2UICard';
-import DataResultView from './DataResultView';
+import DataResultView, { canRenderDataResult } from './DataResultView';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { useIntl } from '@umijs/max';
+
+const MD_SANITIZE = {
+  USE_PROFILES: { html: true },
+  FORBID_TAGS: ['style', 'iframe', 'svg', 'math'],
+  FORBID_ATTR: ['style'],
+} as const;
 
 // ---------------- 工具结果解析（实体列表 -> Table；否则 JSON） ----------------
 function ResultView({ content }: { content?: string }) {
@@ -123,9 +129,9 @@ function ResultView({ content }: { content?: string }) {
       </Card>
     );
   }
-  // 专用渲染（时序/波形工具结果 → 表格/统计/曲线），无法识别时回退 JsonView
-  const dataView = DataResultView({ value: parsed });
-  if (dataView) return dataView;
+  // 专用渲染（时序/波形工具结果 → 表格/统计/曲线），无法识别时回退 JsonView。
+  // 注意：必须作为组件渲染（DataResultView 内部使用 hooks），不能当普通函数调用。
+  if (canRenderDataResult(parsed)) return <DataResultView value={parsed} />;
   return <JsonView value={parsed} />;
 }
 
@@ -186,7 +192,7 @@ interface MessageItemProps {
   onApproveAndTrust: () => void;
 }
 
-export default function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: MessageItemProps) {
+function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: MessageItemProps) {
   const { token } = theme.useToken();
   const intl = useIntl();
   const fm = (id: string) => intl.formatMessage({ id });
@@ -537,7 +543,9 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
                 <ApprovalCard
                   key={b.id}
                   tool={b.toolName}
+                  risk={b.risk}
                   params={b.params}
+                  submitting={b.approvalSubmitting}
                   onApprove={onApprove}
                   onApproveAndTrust={onApproveAndTrust}
                 />
@@ -558,7 +566,9 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
               className="md-body"
               content={cleanAnswer}
               openLinksInNewTab
-              streaming={msg.streaming ? { hasNextChunk: true, tail: true } : undefined}
+              escapeRawHtml
+              dompurifyConfig={MD_SANITIZE as any}
+              streaming={msg.streaming ? { hasNextChunk: true, tail: true, incremental: true } : undefined}
             />
           )}
 
@@ -590,3 +600,8 @@ export default function MessageItem({ msg, showProcess, onApprove, onApproveAndT
     />
   );
 }
+
+export default memo(
+  MessageItem,
+  (prev, next) => prev.msg === next.msg && prev.showProcess === next.showProcess,
+);

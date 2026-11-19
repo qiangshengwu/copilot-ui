@@ -12,10 +12,14 @@ export const delLogin = () => {
 
 export const getLogin = (): AuthLoginResponse | undefined => {
   const login = localStorage.getItem('login');
-  if (login !== null) {
-    return JSON.parse(login);
+  if (login === null) return undefined;
+  try {
+    return JSON.parse(login) as AuthLoginResponse;
+  } catch {
+    // 本地缓存损坏：清理，走重新登录
+    localStorage.removeItem('login');
+    return undefined;
   }
-  return undefined;
 };
 
 export const setTenant = (t: GetTenantQuery['tenant']) => {
@@ -35,17 +39,19 @@ export const getTenant = (): GetTenantQuery['tenant'] | undefined => {
   return undefined;
 };
 
-/** 判断 JWT 是否已过期（按 exp 字段；非 JWT / 无 exp 视为未过期） */
+/** 判断 JWT 是否已过期（按 exp 字段，预留 30s 提前量；非 JWT / 无 exp 视为已过期） */
 export function tokenExpired(token?: string): boolean {
   if (!token) return true;
   try {
     const parts = token.split('.');
-    if (parts.length < 2) return false; // 非 JWT，无法判断，按有效处理
+    if (parts.length < 2) return true; // 平台 token 为 JWT；非 JWT 视为不可用
     const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(b64));
-    if (typeof payload?.exp === 'number') return payload.exp * 1000 <= Date.now();
+    if (typeof payload?.exp === 'number') {
+      return payload.exp * 1000 <= Date.now() + 30_000;
+    }
   } catch {
-    /* 解码失败：不拦截，按有效处理 */
+    return true;
   }
-  return false;
+  return true;
 }

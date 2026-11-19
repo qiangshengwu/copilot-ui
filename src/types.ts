@@ -1,6 +1,6 @@
 // ============================================================
 // SSE 事件与消息渲染模型类型定义
-// 契约来源：agent/server/panel.html（Go 服务内嵌面板）
+// 契约来源：后端 SSE step 事件（见 apidocs/openapi/copilot.yaml、apidocs/a2ui.md）
 // ============================================================
 
 /** step.data.type 子类型 */
@@ -97,15 +97,6 @@ export interface Tenant {
   alias?: string;
 }
 
-/** 发送任务请求体 */
-export interface TaskRequestBody {
-  prompt: string;
-  user_id: string;
-  tenant_id?: string;
-  stream: boolean;
-  history: { role: string; content: string }[];
-}
-
 /** POST /{workspaceID}/copilot/task 响应（仅需 id 用于订阅流） */
 export interface TaskCreatedResp {
   id: string;
@@ -148,6 +139,8 @@ export interface Block {
   chartFailed?: boolean;
   /** approval_pending / approval_result */
   approved?: boolean;
+  /** 审批提交中（防重复点击） */
+  approvalSubmitting?: boolean;
   /** error */
   errorText?: string;
   /** a2ui：解析后的命令数组（用于 XCard.Box 渲染） */

@@ -8,7 +8,7 @@ import type {SSEEvent} from '@/types';
 import {newBlockId, newMsgId, truncateTitle, tick} from './chatUtils';
 import type {ChatState} from './useChatState';
 import type {ConversationsState} from './useConversations';
-import {getLogin} from "@/utils/token";
+import {authFetch} from '@/services/http';
 
 /** 中英切换辅助：用于 hooks 内的静态弹窗/提示文案（组件内统一用 useIntl） */
 const zhNow = () => getLocale().toLowerCase().startsWith('zh');
@@ -36,38 +36,76 @@ export function useTask({chat, convs}: Options) {
     const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const abortByWatchdogRef = useRef(false);
     const runningRef = useRef(false);
+    // 同步防重入：useRequest.loading 有一帧延迟，快速双击会创建两个任务
+    const sendingRef = useRef(false);
+    // 审批期间暂停看门狗；审批提交中禁止重复点击
+    const awaitingApprovalRef = useRef(false);
+    const approvalBusyRef = useRef(false);
 
     // ---------- 审批 ----------
     const doApprove = useCallback(
-        (ok: boolean) => {
+        async (ok: boolean): Promise<boolean> => {
             const tid = taskIdRef.current;
-            if (!tid) return;
-            // fire-and-forget（即发即忘），审批结果由 SSE 事件回写
-            copilotClient()
-                .post('/{workspaceID}/copilot/task/approve', {
+            if (!tid || !tenantId) return false;
+            try {
+                await copilotClient().post('/{workspaceID}/copilot/task/approve', {
                     params: {path: {workspaceID: tenantId}},
                     body: {task_id: tid, approved: ok},
-                })
-                .catch(() => {
                 });
+                awaitingApprovalRef.current = false;
+                return true;
+            } catch (e) {
+                chat.appendBlock({
+                    id: newBlockId(),
+                    kind: 'error',
+                    errorText: `${T('审批提交失败', 'Failed to submit approval')}: ${(e as Error).message}`,
+                });
+                return false;
+            }
         },
-        [tenantId],
+        [chat, tenantId],
     );
 
-    const handleApprove = useCallback(
+    const settleApproval = useCallback(
         (ok: boolean) => {
-            doApprove(ok);
-            // 移除待审批块
             chat.updateCur((m) => ({
                 ...m,
                 blocks: m.blocks.map((b) =>
-                    b.kind === 'approval_pending' ? {...b, kind: 'approval_result', approved: ok} : b,
+                    b.kind === 'approval_pending'
+                        ? {...b, kind: 'approval_result', approved: ok, approvalSubmitting: false}
+                        : b,
                 ),
                 phase: undefined,
                 phaseBusy: false,
             }));
         },
-        [chat, doApprove],
+        [chat],
+    );
+
+    const handleApprove = useCallback(
+        async (ok: boolean) => {
+            if (approvalBusyRef.current) return;
+            approvalBusyRef.current = true;
+            chat.updateCur((m) => ({
+                ...m,
+                blocks: m.blocks.map((b) =>
+                    b.kind === 'approval_pending' ? {...b, approvalSubmitting: true} : b,
+                ),
+            }));
+            const success = await doApprove(ok);
+            approvalBusyRef.current = false;
+            if (success) {
+                settleApproval(ok);
+            } else {
+                chat.updateCur((m) => ({
+                    ...m,
+                    blocks: m.blocks.map((b) =>
+                        b.kind === 'approval_pending' ? {...b, approvalSubmitting: false} : b,
+                    ),
+                }));
+            }
+        },
+        [chat, doApprove, settleApproval],
     );
 
     const handleApproveAndTrust = useCallback(() => {
@@ -80,22 +118,13 @@ export function useTask({chat, convs}: Options) {
             okText: T('确认开启', 'Enable'),
             cancelText: T('取消', 'Cancel'),
             okButtonProps: {danger: true},
-            onOk: () => {
+            onOk: async () => {
                 chat.setAutoApprove(true);
-                doApprove(true);
-                chat.updateCur((m) => ({
-                    ...m,
-                    blocks: m.blocks.map((b) =>
-                        b.kind === 'approval_pending'
-                            ? {...b, kind: 'approval_result', approved: true}
-                            : b,
-                    ),
-                    phase: undefined,
-                    phaseBusy: false,
-                }));
+                chat.autoApproveRef.current = true;
+                await handleApprove(true);
             },
         });
-    }, [chat, doApprove]);
+    }, [chat, handleApprove]);
 
     // ---------- 终态落库 ----------
     const persistAssistant = useCallback(
@@ -236,10 +265,28 @@ export function useTask({chat, convs}: Options) {
                     return false;
                 }
                 if (st === 'approval') {
-                    chat.appendBlock({
-                        id: newBlockId(),
-                        kind: 'approval_result',
-                        approved: !!d.approved,
+                    awaitingApprovalRef.current = false;
+                    // 审批 HTTP 成功时已乐观标记；SSE 回写只更新既有块，避免重复卡片
+                    chat.updateCur((m) => {
+                        if (!m.blocks.some((b) => b.kind === 'approval_pending')) {
+                            return {
+                                ...m,
+                                blocks: [
+                                    ...m.blocks,
+                                    {id: newBlockId(), kind: 'approval_result', approved: !!d.approved},
+                                ],
+                            };
+                        }
+                        return {
+                            ...m,
+                            blocks: m.blocks.map((b) =>
+                                b.kind === 'approval_pending'
+                                    ? {...b, kind: 'approval_result', approved: !!d.approved, approvalSubmitting: false}
+                                    : b,
+                            ),
+                            phase: undefined,
+                            phaseBusy: false,
+                        };
                     });
                     return false;
                 }
@@ -269,8 +316,8 @@ export function useTask({chat, convs}: Options) {
                 return false;
             }
             if (t === 'approval') {
-                if (chat.autoApprove) {
-                    doApprove(true);
+                if (chat.autoApproveRef.current) {
+                    void doApprove(true);
                     chat.appendBlock({
                         id: newBlockId(),
                         kind: 'approval_result',
@@ -278,16 +325,20 @@ export function useTask({chat, convs}: Options) {
                     });
                     return false;
                 }
+                awaitingApprovalRef.current = true;
                 chat.appendBlock({
                     id: newBlockId(),
                     kind: 'approval_pending',
                     toolName: d.tool,
                     params: d.params,
+                    risk: d.risk || 'danger',
+                    approvalSubmitting: false,
                 });
                 chat.updateCur((m) => ({...m, phase: '等待审批…', phaseBusy: true}));
                 return false;
             }
             if (t === 'done') {
+                awaitingApprovalRef.current = false;
                 chat.flushFinalSync(); // 终态前同步最后一帧
                 chat.updateCur((m) => ({
                     ...m,
@@ -304,6 +355,7 @@ export function useTask({chat, convs}: Options) {
                 return true;
             }
             if (t === 'failed') {
+                awaitingApprovalRef.current = false;
                 chat.appendBlock({
                     id: newBlockId(),
                     kind: 'error',
@@ -314,6 +366,7 @@ export function useTask({chat, convs}: Options) {
                 return true;
             }
             if (t === 'cancelled') {
+                awaitingApprovalRef.current = false;
                 chat.updateCur((m) => ({...m, phase: undefined, phaseBusy: false, streaming: false}));
                 chat.finishedRef.current = true;
                 return true;
@@ -331,12 +384,14 @@ export function useTask({chat, convs}: Options) {
         chat.pendingToolRef.current = [];
         abortRef.current = null;
         chat.finalAnswerRef.current = '';
+        chat.clearPendingFinal();
+        awaitingApprovalRef.current = false;
     }, [chat]);
 
     // ---------- SSE 流看门狗 ----------
     // 阈值 25s：明显大于 LLM 两次事件的最大间隔（~8s，含长思考/工具调用），避免误判；
     // 又小于浏览器代理挂死时的无限等待。每收到一个事件就重置（清旧开新）。
-    const WATCHDOG_MS = 25_000;
+    const WATCHDOG_MS = 60_000;
     const clearWatchdog = useCallback(() => {
         if (watchdogRef.current != null) {
             clearTimeout(watchdogRef.current);
@@ -346,7 +401,8 @@ export function useTask({chat, convs}: Options) {
     const armWatchdog = useCallback(() => {
         clearWatchdog();
         watchdogRef.current = setTimeout(() => {
-            if (!chat.finishedRef.current) {
+            // 等待人工审批时没有 SSE 事件，不能按断流处理
+            if (!chat.finishedRef.current && !awaitingApprovalRef.current) {
                 // 流停滞：标记来源并 abort，for-await 会抛 AbortError 进入断线恢复
                 abortByWatchdogRef.current = true;
                 abortRef.current?.abort();
@@ -356,28 +412,28 @@ export function useTask({chat, convs}: Options) {
 
     // ---------- 断线后轮询任务终态（只读 GET /task/{id}，不触发任务重跑） ----------
     // 背景：agent server 写超时会硬切 SSE 长连接，终态事件丢失。该端点纯读状态、无副作用，
-    // 重复订阅 /stream 会重跑任务，因此用轮询而非重连。
+    // 重复订阅 /stream 会重跑任务，因此用轮询而非重连；最多持续 5 分钟，审批期间继续轮询。
     const pollTaskState = useCallback(
         async (convId: string, asstMsgId: string, taskId: string) => {
             const ac = new AbortController();
             pollAbortRef.current = ac;
+            // 断线后仍允许审批/停止：恢复任务 id，供 doApprove/DELETE 使用
+            taskIdRef.current = taskId;
             const signal = ac.signal;
 
             const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-            for (let i = 0; i < 15; i++) {
+            for (let i = 0; i < 150; i++) {
                 if (signal.aborted) return;
                 await sleep(2000);
                 if (signal.aborted) return;
 
                 let j: { state?: string; final_answer?: string; error?: string };
                 try {
-                    const resp = await fetch(`${tenantId}/copilot/task/${encodeURIComponent(taskId)}`,
-                        {
-                            headers: {Authorization: `Bearer ${getLogin()?.token}`},
-                            signal
-                        },
-                    );
+                    const resp = await authFetch(`/${tenantId}/copilot/task/${encodeURIComponent(taskId)}`, {
+                        headers: {Accept: 'application/json'},
+                        signal,
+                    });
                     if (!resp.ok) continue; // 瞬态错误，下一轮再试
                     j = await resp.json();
                 } catch (e) {
@@ -390,8 +446,7 @@ export function useTask({chat, convs}: Options) {
                 if (state === 'running' || state === 'paused_approval') continue;
 
                 if (state === 'done') {
-                    chat.flushFinalSync();
-                    chat.updateCur((m) => ({
+                    chat.updateById(asstMsgId, (m) => ({
                         ...m,
                         disconnected: false,
                         streaming: false,
@@ -408,12 +463,12 @@ export function useTask({chat, convs}: Options) {
                     break;
                 }
                 if (state === 'failed') {
-                    chat.appendBlock({
+                    chat.appendBlockById(asstMsgId, {
                         id: newBlockId(),
                         kind: 'error',
                         errorText: j.error || T('任务失败', 'Task failed'),
                     });
-                    chat.updateCur((m) => ({...m, phase: undefined, phaseBusy: false, streaming: false}));
+                    chat.updateById(asstMsgId, (m) => ({...m, phase: undefined, phaseBusy: false, streaming: false}));
                     break;
                 }
                 // cancelled / 未知：保持现状清理
@@ -439,6 +494,13 @@ export function useTask({chat, convs}: Options) {
             const prompt = (text || '').trim();
             if (!prompt) return;
             if (runningRef.current) return;
+            if (!tenantId) {
+                Modal.error({
+                    title: T('租户未就绪', 'Tenant not ready'),
+                    content: T('请先登录并等待租户加载完成。', 'Please sign in and wait for the tenant to load.'),
+                });
+                return;
+            }
 
             let convId = convs.activeConvIdRef.current;
             // 无活动会话则先创建（title 取文本前 30 字符）
@@ -480,6 +542,7 @@ export function useTask({chat, convs}: Options) {
             chat.curMsgIdRef.current = asstMsg.id;
             chat.finishedRef.current = false;
             chat.finalAnswerRef.current = '';
+            chat.clearPendingFinal();
             abortByWatchdogRef.current = false;
 
             abortRef.current = new AbortController();
@@ -512,10 +575,10 @@ export function useTask({chat, convs}: Options) {
                 taskIdRef.current = taskId;
 
                 // 2. 订阅 SSE 流式端点（订阅后后端启动任务，事件不丢）
-                const streamResp = await fetch(
-                    `${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
+                const streamResp = await authFetch(
+                    `/${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
                     {
-                        headers: {Authorization: `Bearer ${getLogin()?.token}`},
+                        headers: {Accept: 'text/event-stream'},
                         signal: abortRef.current.signal,
                     },
                 );
@@ -547,7 +610,7 @@ export function useTask({chat, convs}: Options) {
                 } else {
                     // 流异常结束（非终态，生产直连后端断连的表现）：标记断线，不立即落库，
                     // 由 pollTaskState 终态分支统一落库，避免重复落库；轮询 GET /task/{id} 无副作用。
-                    chat.updateCur((m) => ({
+                    chat.updateById(asstMsg.id, (m) => ({
                         ...m,
                         disconnected: true,
                         phase: undefined,
@@ -572,7 +635,7 @@ export function useTask({chat, convs}: Options) {
                 clearWatchdog();
                 finish();
                 if (e.name === 'AbortError' && byWatchdog && !chat.finishedRef.current) {
-                    chat.updateCur((m) => ({
+                    chat.updateById(asstMsg.id, (m) => ({
                         ...m,
                         disconnected: true,
                         phase: undefined,
@@ -593,8 +656,14 @@ export function useTask({chat, convs}: Options) {
     }, [running]);
 
     const send = useCallback((text: string) => {
-        void run(text).catch(() => {
-        });
+        if (sendingRef.current) return;
+        sendingRef.current = true;
+        void run(text)
+            .catch(() => {
+            })
+            .finally(() => {
+                sendingRef.current = false;
+            });
     }, [run]);
 
     // ---------- 停止：先 DELETE 任务，再 abort 流，走 finish 清理 ----------
@@ -608,6 +677,21 @@ export function useTask({chat, convs}: Options) {
                 .catch(() => {
                 });
         }
+        const asstId = chat.curMsgIdRef.current;
+        if (asstId) {
+            chat.updateById(asstId, (m) => ({
+                ...m,
+                streaming: false,
+                streamingContent: undefined,
+                content: m.streamingContent || m.content,
+                phase: undefined,
+                phaseBusy: false,
+                blocks: m.blocks.map((b) =>
+                    b.kind === 'thinking' ? {...b, thinkingDone: true} : b,
+                ),
+            }));
+        }
+        awaitingApprovalRef.current = false;
         pollAbortRef.current?.abort(); // 终止断线恢复轮询
         if (watchdogRef.current != null) clearTimeout(watchdogRef.current); // 停掉看门狗
         abortRef.current?.abort();

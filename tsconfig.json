@@ -17,5 +17,5 @@
       "@@/*": ["./src/.umi/*"]
     }
   },
-  "include": ["src", ".umi/types", "config"]
+  "include": ["src"]
 }

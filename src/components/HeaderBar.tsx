@@ -94,7 +94,12 @@ export default function HeaderBar(props: HeaderBarProps) {
           }}
         >
           {fm('copilot.header.process')}
-          <Switch size="small" checked={showProcess} onChange={onShowProcessChange} />
+          <Switch
+            size="small"
+            checked={showProcess}
+            onChange={onShowProcessChange}
+            aria-label={fm('copilot.header.process')}
+          />
         </label>
       </Tooltip>
 
@@ -102,6 +107,7 @@ export default function HeaderBar(props: HeaderBarProps) {
       <Tooltip title={autoFollow ? fm('copilot.header.follow.on') : fm('copilot.header.follow.off')}>
         <button
           type="button"
+          aria-label={autoFollow ? fm('copilot.header.follow.on') : fm('copilot.header.follow.off')}
           onClick={onToggleFollow}
           className={iconBtn}
           style={{ color: autoFollow ? token.colorPrimary : token.colorTextSecondary }}
@@ -112,7 +118,7 @@ export default function HeaderBar(props: HeaderBarProps) {
 
       {/* 删除当前会话 */}
       <Tooltip title={fm('copilot.header.clear')}>
-        <button type="button" onClick={onClear} className={iconBtn}>
+        <button type="button" aria-label={fm('copilot.header.clear')} onClick={onClear} className={iconBtn}>
           <Trash2 size={16} />
         </button>
       </Tooltip>
@@ -120,7 +126,12 @@ export default function HeaderBar(props: HeaderBarProps) {
       {/* 一键批准状态 */}
       {autoApprove && (
         <Tooltip title={fm('copilot.header.auto.approve.on')}>
-          <button type="button" onClick={onDisableAutoApprove} className={autoApproveBtn}>
+          <button
+            type="button"
+            aria-label={fm('copilot.header.auto.approve.on')}
+            onClick={onDisableAutoApprove}
+            className={autoApproveBtn}
+          >
             <ShieldCheck size={14} /> {fm('copilot.header.auto.approve')}
           </button>
         </Tooltip>

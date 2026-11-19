@@ -12,4 +12,16 @@ declare module '@umijs/max' {
   } from './.umi/plugin-request';
   export * from './.umi/plugin-request/types';
   export { useModel } from './.umi/plugin-model';
+  export {
+    addLocale,
+    setLocale,
+    getLocale,
+    getIntl,
+    useIntl,
+    injectIntl,
+    formatMessage,
+    getAllLocales,
+    IntlProvider,
+    RawIntlProvider,
+  } from './.umi/plugin-locale';
 }

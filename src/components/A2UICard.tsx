@@ -23,57 +23,125 @@ import { useIntl, getLocale } from '@umijs/max';
 // 且组件树必须有 id==='root' 的根节点（transformer 返回 componentMap.get('root')）。
 // ============================================================
 
-interface TransformedResult {
-  /** 喂给 XCard.Box 的 v0.9 命令数组 */
+interface SurfacePlan {
+  surfaceId: string;
+  title?: string;
   cmds: any[];
-  /** surfaceId（用于渲染 <XCard.Card id=... />） */
-  surfaceId?: string;
-  /** surface.title（卡片头标题，MessageItem 外层使用） */
-  surfaceTitle?: string;
 }
 
-function transformCommands(commands: A2UICommand[]): TransformedResult {
-  const cmds: any[] = [];
-  let surfaceId: string | undefined;
-  let surfaceTitle: string | undefined;
+interface SurfaceState {
+  title?: string;
+  cmds: any[];
+  nodes: string[];
+  hasExplicitRoot: boolean;
+}
 
-  for (const cmd of commands) {
-    if (cmd.type === 'createSurface') {
-      surfaceId = cmd.surface.id;
-      surfaceTitle = cmd.surface.title;
-      // 本地组件通过 Box.components 注册，无需远程 catalog
-      cmds.push({ version: 'v0.9', createSurface: { surfaceId: cmd.surface.id } });
-    } else if (cmd.type === 'updateComponents') {
-      const nodes = cmd.components || {};
-      const nodeIds = Object.keys(nodes);
-      const arr: any[] = [];
-      for (const [nodeId, node] of Object.entries(nodes)) {
-        // v0.9: props 扁平到顶层（parseV09Node 会跳过 id/component/child/children）
-        arr.push({ id: nodeId, component: node.type, ...(node.props || {}) });
+const ALLOWED_COMPONENTS = new Set(['Text', 'Table', 'Chart', 'Statistic', 'Column']);
+const FORBIDDEN_PATH = new Set(['__proto__', 'constructor', 'prototype']);
+
+function validPath(path: unknown): path is string {
+  if (typeof path !== 'string' || !/^(\/[A-Za-z0-9_-]+)+$/.test(path)) return false;
+  return !path.split('/').filter(Boolean).some((seg) => FORBIDDEN_PATH.has(seg));
+}
+
+/**
+ * 后端自定义 A2UI 命令 -> XCard v0.9 命令。
+ * 支持多 surface；同一 surface 的多次 updateComponents 会累积节点，
+ * 自动 root 的 children 始终包含该 surface 已声明的全部节点。
+ */
+function transformCommands(commands: A2UICommand[]): SurfacePlan[] {
+  const surfaces = new Map<string, SurfaceState>();
+
+  const stateOf = (surfaceId: string): SurfaceState | undefined => surfaces.get(surfaceId);
+
+  for (const cmd of commands.slice(0, 200)) {
+    if (!cmd || typeof cmd !== 'object') continue;
+    switch (cmd.type) {
+      case 'createSurface': {
+        const surfaceId = cmd.surface?.id;
+        if (typeof surfaceId !== 'string' || !surfaceId) break;
+        let state = surfaces.get(surfaceId);
+        if (!state) {
+          state = {
+            title: typeof cmd.surface?.title === 'string' ? cmd.surface.title : undefined,
+            cmds: [],
+            nodes: [],
+            hasExplicitRoot: false,
+          };
+          surfaces.set(surfaceId, state);
+        } else if (typeof cmd.surface?.title === 'string') {
+          state.title = cmd.surface.title;
+        }
+        state.cmds.push({version: 'v0.9', createSurface: {surfaceId}});
+        break;
       }
-      // 无显式 root 时，包一层 Column 容器作为根，子节点按顺序排列
-      if (!nodes['root'] && nodeIds.length > 0) {
-        arr.push({ id: 'root', component: 'Column', children: nodeIds });
+      case 'updateComponents': {
+        const state = stateOf(cmd.surfaceId);
+        if (!state) break;
+        const nodes = cmd.components || {};
+        const entries = Object.entries(nodes)
+          .filter(([nodeId]) => !!nodeId)
+          .slice(0, 500);
+        if (entries.length === 0) break;
+
+        const arr: any[] = [];
+        for (const [nodeId, node] of entries) {
+          if (!node || typeof node !== 'object') continue;
+          const rawType = (node as any).type;
+          const component = typeof rawType === 'string' && ALLOWED_COMPONENTS.has(rawType) ? rawType : 'Unknown';
+          const props = (node as any).props && typeof (node as any).props === 'object'
+            ? (node as any).props
+            : {};
+          // 先展开业务 props，再写受保护的 id/component，避免 props 劫持结构
+          arr.push({
+            ...props,
+            ...(component === 'Unknown' ? {__type: rawType} : {}),
+            id: nodeId,
+            component,
+          });
+          if (!state.nodes.includes(nodeId)) state.nodes.push(nodeId);
+          if (nodeId === 'root') state.hasExplicitRoot = true;
+        }
+        if (arr.length === 0) break;
+        if (!state.hasExplicitRoot) {
+          arr.push({id: 'root', component: 'Column', children: [...state.nodes]});
+        }
+        state.cmds.push({
+          version: 'v0.9',
+          updateComponents: {surfaceId: cmd.surfaceId, components: arr},
+        });
+        break;
       }
-      cmds.push({
-        version: 'v0.9',
-        updateComponents: { surfaceId: cmd.surfaceId, components: arr },
-      });
-      if (!surfaceId) surfaceId = cmd.surfaceId;
-    } else if (cmd.type === 'updateDataModel') {
-      cmds.push({
-        version: 'v0.9',
-        updateDataModel: { surfaceId: cmd.surfaceId, path: cmd.path, value: cmd.value },
-      });
-      if (!surfaceId) surfaceId = cmd.surfaceId;
-    } else if (cmd.type === 'deleteSurface') {
-      cmds.push({ version: 'v0.9', deleteSurface: { surfaceId: cmd.surfaceId } });
+      case 'updateDataModel': {
+        const state = stateOf(cmd.surfaceId);
+        if (!state || !validPath(cmd.path)) break;
+        state.cmds.push({
+          version: 'v0.9',
+          updateDataModel: {surfaceId: cmd.surfaceId, path: cmd.path, value: cmd.value},
+        });
+        break;
+      }
+      case 'deleteSurface': {
+        const state = stateOf(cmd.surfaceId);
+        if (!state) break;
+        state.cmds.push({version: 'v0.9', deleteSurface: {surfaceId: cmd.surfaceId}});
+        surfaces.delete(cmd.surfaceId);
+        break;
+      }
+      default:
+        break;
     }
   }
-  return { cmds, surfaceId, surfaceTitle };
+
+  // 保序输出；删除的 surface 不再渲染
+  return [...surfaces.entries()].map(([surfaceId, state]) => ({
+    surfaceId,
+    title: state.title,
+    cmds: state.cmds,
+  }));
 }
 
-/** 供 MessageItem 提取卡片标题 */
+/** 供 MessageItem 提取卡片标题（多 surface 时返回第一个） */
 export function getA2UISurfaceTitle(commands?: A2UICommand[]): string | undefined {
   if (!commands) return undefined;
   for (const cmd of commands) {
@@ -212,13 +280,13 @@ export default function A2UICard({ commands, a2uiRaw }: A2UICardProps) {
   }));
 
   // 转换后端命令 -> x-card v0.9 命令（useMemo 避免每次渲染重复计算）
-  const transformed = useMemo<TransformedResult | null>(() => {
-    if (!commands || commands.length === 0) return null;
+  const surfaces = useMemo<SurfacePlan[]>(() => {
+    if (!commands || commands.length === 0) return [];
     try {
       return transformCommands(commands);
     } catch (e) {
       console.warn('[A2UI] transform failed:', e);
-      return null;
+      return [];
     }
   }, [commands]);
 
@@ -235,7 +303,7 @@ export default function A2UICard({ commands, a2uiRaw }: A2UICardProps) {
     [],
   );
 
-  if (!transformed || !transformed.surfaceId || transformed.cmds.length === 0) {
+  if (surfaces.length === 0) {
     // 无有效命令：不渲染占位（避免遮挡后续 markdown）；若有 raw 则给一行提示
     if (a2uiRaw) {
       return (
@@ -248,12 +316,17 @@ export default function A2UICard({ commands, a2uiRaw }: A2UICardProps) {
   }
 
   return (
-    <A2UIErrorBoundary raw={a2uiRaw}>
-      <div className={boxCss}>
-        <XCard.Box commands={transformed.cmds} components={componentMap}>
-          <XCard.Card id={transformed.surfaceId} />
-        </XCard.Box>
-      </div>
-    </A2UIErrorBoundary>
+    <div className={boxCss}>
+      {surfaces.map((surface) => (
+        <A2UIErrorBoundary key={surface.surfaceId} raw={a2uiRaw}>
+          {surfaces.length > 1 && surface.title ? (
+            <div style={{fontSize: 13, fontWeight: 600, margin: '4px 0 8px'}}>{surface.title}</div>
+          ) : null}
+          <XCard.Box commands={surface.cmds} components={componentMap}>
+            <XCard.Card id={surface.surfaceId} />
+          </XCard.Box>
+        </A2UIErrorBoundary>
+      ))}
+    </div>
   );
 }

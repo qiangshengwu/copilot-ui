@@ -1,4 +1,13 @@
 export default {
+  // login
+  'copilot.login.title': '登录 Copilot',
+  'copilot.login.subtitle': '使用平台账号登录后进入控制台',
+  'copilot.login.identifier': '账号',
+  'copilot.login.password': '密码',
+  'copilot.login.submit': '登录',
+  'copilot.login.required': '请填写账号和密码',
+  'copilot.login.failed': '登录失败，请检查账号密码',
+  'copilot.login.noTenant': '该账号没有可用租户，请联系管理员',
   'copilot.app.console': '控制台',
   // 会话
   'copilot.conversation.new': '新建会话',

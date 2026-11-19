@@ -1,81 +1,84 @@
-# Copilot Agent 控制台面板
+# Copilot Agent 控制台
 
-基于 **UmiJS 4 + React 18 + TypeScript + Ant Design 5 + @ant-design/x** 重写的 AI 聊天控制台面板，对应 Go 服务内嵌的 panel.html。
+基于 **UmiJS 4 + React 18 + TypeScript + Ant Design 6 + @ant-design/x 2.x** 的 AI 聊天控制台，对接 Go Agent 服务（`/{workspaceID}/copilot/...`）。
 
 ## 技术栈
 
-- UmiJS ^4.x（devDependencies）
-- React ^18 + TypeScript
-- Ant Design ^5（XProvider + zhCN + darkAlgorithm 暗色，跟随系统 prefers-color-scheme）
-- Ant Design X ^1.6：XProvider / Bubble / ThoughtChain / Sender / Prompts
-- @ant-design/x-sdk ^2.9：XStream 解析 SSE 流
-- Markdown：markdown-it（与官方 XMarkdown 同一引擎）+ dompurify 防 XSS
-- 图标：lucide-react（不使用 Tailwind）
-- 图表：echarts（自封装 React 组件，渲染失败降级占位）
-- 包管理：npm
+- UmiJS 4.7 / React 18 / TypeScript 5.6
+- Ant Design 6 + @ant-design/x（Bubble / ThoughtChain / Sender / Prompts）
+- @ant-design/x-card（A2UI 结构化卡片）、@ant-design/x-markdown（流式 Markdown，内部 DOMPurify）
+- ECharts 5（按需异步加载）
+- @tanstack/react-query（会话列表无限滚动）
+- openapi-fetch + `src/types/copilot.d.ts`（由后端 OpenAPI 生成）
 
-> 说明：官方 XMarkdown 与 x-cards（User/Team/List Card）随 @ant-design/x@2.x 发布，依赖 antd v6；本工程锁定 antd v5，故 Markdown 直接采用同引擎 markdown-it + DOMPurify，实体/结果展示用 antd 原生 Card/Table/List 承载。
+## 登录与鉴权
 
-## 组件映射（自写实现 -> antd 生态）
+- 启动时读取 `localStorage.login`；无 token/已过期则展示**账号密码登录页**（`POST /auth/login`）。
+- 登录成功后调用 `/graphql` 拉取租户，默认取第一条作为当前租户。
+- 所有请求统一走 `src/services/http.ts` 的 `authFetch`：自动注入 Bearer token，401 时清 token 并派发 `copilot:unauthorized`，由 `LoginGate` 切回登录页（不再整页 reload）。
+- 代码中**不内置任何账号密码**；测试/生产均由用户输入。
 
-| 功能 | 旧自写 | 现用 antd 生态 |
-| --- | --- | --- |
-| 主题/语言/暗色 | ConfigProvider | XProvider（透传 antd ConfigProvider） |
-| 消息气泡 | 手写 div | Bubble（placement start/end + 自定义头像） |
-| 推理/工具过程块 | 手写折叠卡 | ThoughtChain（items：status pending/success/error） |
-| 底部输入 | 手写 TextArea+按钮 | Sender（loading 显示停止按钮、Enter 发送） |
-| 欢迎空状态/示例 | 手写胶囊 | Prompts（能力项 + 可点击示例） |
-| SSE 解析 | 手写 fetch+ReadableStream | @ant-design/x-sdk 的 XStream |
-| Markdown | 手写轻量解析 | markdown-it + DOMPurify |
-| 实体结果 | antd Table | antd Card 容器 + Table |
-| 工具参数/原始 JSON | hlJson 自写高亮 | 保留 highlightJson（与 Markdown 用途区分） |
+## 目录
 
-## 工程结构
-
-    src/
-      global.less
-      types.ts
-      utils/
-        api.ts            # Agent 基址解析（localStorage 记忆）
-        markdown.ts       # markdown-it + DOMPurify
-        jsonHighlight.ts  # JSON 语法高亮（工具参数/原始结果）
-      components/
-        HeaderBar.tsx     # 顶栏
-        MessageItem.tsx   # Bubble + ThoughtChain + 实体 Card/Table
-        ApprovalCard.tsx   # 待审批卡片
-        ChartBlock.tsx     # ECharts 自封装组件
-        Welcome.tsx        # Prompts 空状态
-        Composer.tsx       # Sender 输入区
-      pages/index.tsx      # 主页面与 SSE 状态机（XStream）
-
-## 功能清单
-
-1. SSE 流式任务：POST /api/v1/agent/task，用 @ant-design/x-sdk 的 XStream 解析 fetch ReadableStream；兼容 task_created / task_started / step(thinking|tool_call|tool_result|final|approval) / done / failed / cancelled / approval。
-2. 消息流：Bubble 渲染用户气泡与助手流式回答；Markdown 用 markdown-it 渲染（表格/代码块/标题/列表/引用/行内 code/粗斜体/链接），DOMPurify 过滤防 XSS。
-3. 过程展示：ThoughtChain 渲染 thinking（紫色流式、status pending->success）与 tool_call（risk 徽标 read/modify/danger + 参数 JSON 高亮 + status pending/success/error）；tool_result 实体列表用 antd Card+Table；含 chart.option 时抽独立 ECharts 块（始终显示，不随过程开关隐藏），失败降级。
-4. 审批：approval 事件渲染 danger 卡片，批准/拒绝（POST /task/approve）、一键信任（confirm 确认，顶栏状态指示可关闭）。
-5. 顶栏：logo、过程开关、自动滚动跟随（上翻暂停）、清空会话、主题切换（跟随系统+localStorage）、租户下拉（GET /tenants）、Agent 地址配置。
-6. 历史持久化：最近 40 条对话存 localStorage['copilot-thread']，刷新恢复；无历史显示 Prompts 欢迎空状态。
-7. 运行控制：执行中 Sender 变 loading（显示停止按钮，DELETE /task/{id}），禁用输入；SSE 未收到完成事件显示连接中断。
-8. ECharts：按 chart.option 动态渲染。
+```
+src/
+  app.tsx                 Umi getInitialState（已登录时的租户初始化）
+  pages/index.tsx         主页面 + LoginGate
+  components/
+    LoginGate.tsx         账号密码登录
+    MessageItem.tsx       消息/过程块/Markdown/A2UI 渲染
+    A2UICard.tsx          自定义 A2UI 命令 -> XCard v0.9
+    ChartBlock.tsx        ECharts 懒加载封装
+    ChartBlockImpl.tsx    ECharts 实例与 option 安全化
+    DataResultView.tsx    时序/波形/FFT 专用展示
+    ConversationSidebar.tsx / HeaderBar.tsx / Composer.tsx / ApprovalCard.tsx
+  hooks/
+    useTask.ts            发送、SSE、审批、停止、断线轮询、落库
+    useChatState.ts       消息/块/rAF 流式合并
+    useConversations.ts   会话列表与 CRUD
+  services/
+    http.ts               authFetch + 401 事件
+    auth.ts               /auth/login
+    responseInterceptor.ts openapi-fetch 适配器
+  utils/
+    chartOption.ts        ECharts option 白名单/降级
+    token.ts              localStorage token/tenant
+  types/
+    copilot.d.ts          OpenAPI 生成类型（勿手改）
+```
 
 ## 本地运行
 
-    npm install
-    npm run dev        # 默认 8000，/api 代理到 http://127.0.0.1:9091
-    npm run build      # 生产构建到 dist/
+```bash
+npm install
+npm run dev          # 默认 8000
+npm run typecheck    # tsc --noEmit
+npm run build
+npm run openapi      # 需要后端仓库位于 ../../go/src/copilot
+```
 
-## 与后端联调
+`config/config.ts` 中的开发代理：
 
-- 后端 Agent 服务监听 127.0.0.1:9091；dev 下 Umi proxy 转发 /api、/health。
-- 顶栏 Agent 地址留空=同源；非空则所有 API 前缀到该地址（localStorage 记忆）。
-- dev SSE 注意：Umi dev server 默认 gzip 会缓冲 text/event-stream，已在 onProxyRes 把 Cache-Control 改为 no-cache, no-transform 让 compression 跳过 SSE。生产由 Go 后端同域托管，无此问题。
-- API 契约：POST /api/v1/agent/task（SSE）、POST /task/approve、DELETE /task/{id}、GET /tenants、GET /health。
+- `/auth/login`、`/graphql`、`/health` → 平台入口
+- `/*/copilot/**` → 本机 Agent（默认 `127.0.0.1:9091`）
 
-## localStorage 键
+SSE 需要 `Cache-Control: no-cache, no-transform`，否则 dev server 的 gzip 会缓冲事件。
 
-| 键 | 含义 |
-| --- | --- |
-| copilot-thread | 最近 40 条对话 [{role,content}] |
-| copilot-theme | dark / light（未选择跟随系统） |
-| copilot-base | Agent 基址（留空=同源） |
+## 主要 API
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/auth/login` | 平台账号密码登录 |
+| POST | `/{workspaceID}/copilot/task` | 创建任务 |
+| GET | `/{workspaceID}/copilot/task/{id}/stream` | SSE 订阅并启动任务 |
+| GET | `/{workspaceID}/copilot/task/{id}` | 断线后查询任务状态 |
+| POST | `/{workspaceID}/copilot/task/approve` | 审批 |
+| DELETE | `/{workspaceID}/copilot/task/{id}` | 停止任务 |
+| GET/POST/PATCH/DELETE | `/{workspaceID}/copilot/conversations...` | 会话与消息 |
+
+## 约定
+
+- A2UI 是自定义协议（`createSurface/updateComponents/updateDataModel/deleteSurface`），前端只接受 `Text/Table/Chart/Statistic/Column`，未知类型降级为占位。
+- 图表 option 来自模型/后端，渲染前统一经 `sanitizeChartOption`：tooltip 强制 `richText`，限制深度/节点/数组长度。
+- 审批卡展示风险等级；提交中禁用按钮，避免重复审批。
+- 测试环境优先；正式部署的 nginx/账号体系按目标环境再接入。

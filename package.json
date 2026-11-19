@@ -5,12 +5,14 @@
   "description": "AI 聊天控制台面板（UmiJS4 + React18 + TS + antd5），重写自 agent 内嵌 panel.html",
   "scripts": {
     "dev": "max dev",
+    "typecheck": "tsc --noEmit",
     "build": "max build",
     "start": "max dev",
     "postinstall": "max setup",
-    "openapi": "openapi-typescript ../../go/src/copilot/apidocs/openapi/copilot.yaml -o src/services/api.d.ts"
+    "openapi": "openapi-typescript ../../go/src/copilot/apidocs/openapi/copilot.yaml -o src/types/copilot.d.ts"
   },
   "dependencies": {
+    "@ant-design/pro-components": "3.1.15-9",
     "@ant-design/use-emotion-css": "^1.0.4",
     "@ant-design/x": "^2.9.0",
     "@ant-design/x-card": "^2.9.0",

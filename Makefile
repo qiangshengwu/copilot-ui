@@ -7,7 +7,10 @@
 
 override LT_DOCKER_IMAGE_NAME_PREFIX := crpi-n68v5vsgyo3vr4da.cn-hangzhou.personal.cr.aliyuncs.com/linkedti
 
-.PHONY: build up run stop
+.PHONY: build up run stop typecheck
+
+typecheck:
+	npx tsc --noEmit
 
 build:
 	docker build -t $(LT_DOCKER_IMAGE_NAME_PREFIX)/web:latest .

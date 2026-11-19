@@ -212,8 +212,18 @@ export default function ConversationSidebar({
     const editing = editingId === c.id;
     return (
       <div
+        role="button"
+        tabIndex={running ? -1 : 0}
+        aria-current={active ? 'true' : undefined}
+        aria-label={c.title || fm('copilot.conversation.untitled')}
         onClick={() => {
           if (!running && !editing) onSelect(c.id);
+        }}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !running && !editing) {
+            e.preventDefault();
+            onSelect(c.id);
+          }
         }}
         title={c.title}
         className={active ? `${convItem} ${convItemActive}` : convItem}
@@ -264,7 +274,15 @@ export default function ConversationSidebar({
             <Tooltip title={fm('copilot.conversation.rename.confirm')}>
               <span
                 role="button"
-                tabIndex={-1}
+                tabIndex={0}
+                aria-label={fm('copilot.conversation.rename.confirm')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    void commitEdit(c.id);
+                  }
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   void commitEdit(c.id);
@@ -277,7 +295,15 @@ export default function ConversationSidebar({
             <Tooltip title={fm('copilot.common.cancel')}>
               <span
                 role="button"
-                tabIndex={-1}
+                tabIndex={0}
+                aria-label={fm('copilot.common.cancel')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    cancelEdit();
+                  }
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   cancelEdit();
@@ -293,7 +319,14 @@ export default function ConversationSidebar({
             <Tooltip title={running ? fm('copilot.common.running.rename') : fm('copilot.conversation.rename')}>
               <span
                 role="button"
-                tabIndex={-1}
+                tabIndex={running ? -1 : 0}
+                aria-label={fm('copilot.conversation.rename')}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && !running) {
+                    e.preventDefault();
+                    startEdit(c, e as unknown as React.MouseEvent);
+                  }
+                }}
                 onClick={(e) => startEdit(c, e)}
                 className={iconBtn}
                 style={{ cursor: running ? 'not-allowed' : 'pointer' }}
@@ -316,7 +349,15 @@ export default function ConversationSidebar({
               <Tooltip title={running ? fm('copilot.common.running.delete') : fm('copilot.conversation.delete')}>
                 <span
                   role="button"
-                  tabIndex={-1}
+                  tabIndex={running ? -1 : 0}
+                  aria-label={fm('copilot.conversation.delete')}
+                  onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && !running) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDelete(c.id);
+                    }
+                  }}
                   onClick={(e) => e.stopPropagation()}
                   className={iconBtn}
                   style={{ cursor: running ? 'not-allowed' : 'pointer' }}
