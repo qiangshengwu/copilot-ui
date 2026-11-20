@@ -1,8 +1,5 @@
 // 聊天渲染态的纯工具函数（原 index.tsx 内联辅助）。
 // 不依赖 React，便于多 hook 复用与单测。
-import { getLocale } from '@umijs/max';
-
-const zhNow = () => getLocale().toLowerCase().startsWith('zh');
 
 export interface PendingTool {
   name: string;
@@ -18,9 +15,9 @@ let msgSeq = 0;
 export const newMsgId = (): string => `m_${Date.now()}_${msgSeq++}`;
 
 /** 标题取首条文本前 30 字符，超长截断加省略号 */
-export const truncateTitle = (t: string): string => {
+export const truncateTitle = (t: string, locale: string = 'zh-CN'): string => {
   const s = t.trim().replace(/\s+/g, ' ');
-  if (!s) return zhNow() ? '新对话' : 'New chat';
+  if (!s) return locale.startsWith('zh') ? '新对话' : 'New chat';
   return s.length > 30 ? `${s.slice(0, 30)}…` : s;
 };
 

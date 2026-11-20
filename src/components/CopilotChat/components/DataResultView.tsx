@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Alert, Card, Col, Row, Statistic, Table, Tag, theme } from 'antd';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 import ChartBlock from './ChartBlock';
 
 /**
@@ -100,8 +100,9 @@ function WaveformChannels({ channels }: { channels: any[] }) {
 /** 时序消息：趋势图 + 统计 + 表格 */
 function TimeSeriesMessages({ value }: { value: any }) {
   const { token } = theme.useToken();
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const intl = { formatMessage: (d: { id: string }, v?: Record<string, unknown>) => t(d.id, v as any) };
+  const fm = (id: string) => t(id);
 
   const msgs = useMemo<any[]>(
     () => (Array.isArray(value?.messages) ? value.messages : []),

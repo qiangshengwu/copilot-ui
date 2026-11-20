@@ -1,18 +1,13 @@
 import {useCallback, useEffect, useRef} from 'react';
 import type {MutableRefObject} from 'react';
 import {Modal} from 'antd';
-import {useModel, useRequest, getLocale} from '@umijs/max';
-import {copilotClient} from '@/services/clients';
+import {useCopilot} from '../context';
+import {useRequestLite} from './useRequestLite';
 import {XStream} from '@ant-design/x-sdk';
 import type {SSEEvent} from '@/types';
 import {newBlockId, newMsgId, truncateTitle, tick} from './chatUtils';
 import type {ChatState} from './useChatState';
 import type {ConversationsState} from './useConversations';
-import {authFetch} from '@/services/http';
-
-/** 中英切换辅助：用于 hooks 内的静态弹窗/提示文案（组件内统一用 useIntl） */
-const zhNow = () => getLocale().toLowerCase().startsWith('zh');
-const T = (zh: string, en: string) => (zhNow() ? zh : en);
 
 interface Options {
     chat: ChatState;
@@ -26,8 +21,8 @@ interface Options {
  * - AbortController 同时控制 POST /task 与 GET /stream。
  */
 export function useTask({chat, convs}: Options) {
-    const {initialState} = useModel('@@initialState');
-    const tenantId = initialState?.tenant?.id as string;
+    const {tenantId, client, authFetch, baseUrl, locale} = useCopilot();
+    const T = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
     const taskIdRef = useRef<string | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const pollAbortRef = useRef<AbortController | null>(null);
@@ -48,7 +43,7 @@ export function useTask({chat, convs}: Options) {
             const tid = taskIdRef.current;
             if (!tid || !tenantId) return false;
             try {
-                await copilotClient().post('/{workspaceID}/copilot/task/approve', {
+                await client.post('/{workspaceID}/copilot/task/approve', {
                     params: {path: {workspaceID: tenantId}},
                     body: {task_id: tid, approved: ok},
                 });
@@ -136,7 +131,7 @@ export function useTask({chat, convs}: Options) {
             const content = m.content || m.streamingContent || '';
             const blocks = m.blocks && m.blocks.length ? m.blocks : null;
             try {
-                await copilotClient().post('/{workspaceID}/copilot/conversations/{id}/messages', {
+                await client.post('/{workspaceID}/copilot/conversations/{id}/messages', {
                     params: {path: {workspaceID: tenantId, id: convId}},
                     body: {role: 'assistant', content, blocks: blocks as never},
                 });
@@ -430,7 +425,7 @@ export function useTask({chat, convs}: Options) {
 
                 let j: { state?: string; final_answer?: string; error?: string };
                 try {
-                    const resp = await authFetch(`/${tenantId}/copilot/task/${encodeURIComponent(taskId)}`, {
+                    const resp = await authFetch(`${baseUrl}/${tenantId}/copilot/task/${encodeURIComponent(taskId)}`, {
                         headers: {Accept: 'application/json'},
                         signal,
                     });
@@ -506,7 +501,7 @@ export function useTask({chat, convs}: Options) {
             // 无活动会话则先创建（title 取文本前 30 字符）
             if (!convId) {
                 try {
-                    const conv = await convs.createConversation(truncateTitle(prompt));
+                    const conv = await convs.createConversation(truncateTitle(prompt, locale));
                     convId = conv.id;
                     convs.setActiveConvId(convId);
                 } catch (e) {
@@ -521,7 +516,7 @@ export function useTask({chat, convs}: Options) {
 
             // user 消息落库（失败不阻塞任务，但已尽力入列）
             try {
-                await copilotClient().post('/{workspaceID}/copilot/conversations/{id}/messages', {
+                await client.post('/{workspaceID}/copilot/conversations/{id}/messages', {
                     params: {path: {workspaceID: tenantId, id: convIdStr}},
                     body: {role: 'user', content: prompt, blocks: null},
                 });
@@ -556,7 +551,7 @@ export function useTask({chat, convs}: Options) {
 
             try {
                 // 1. 创建任务（标准 REST，copilotClient 统一鉴权 + 复用停止用 signal）
-                const created = await copilotClient().post('/{workspaceID}/copilot/task', {
+                const created = await client.post('/{workspaceID}/copilot/task', {
                     params: {path: {workspaceID: tenantId}},
                     body,
                     signal: abortRef.current.signal,
@@ -576,7 +571,7 @@ export function useTask({chat, convs}: Options) {
 
                 // 2. 订阅 SSE 流式端点（订阅后后端启动任务，事件不丢）
                 const streamResp = await authFetch(
-                    `/${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
+                    `${baseUrl}/${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
                     {
                         headers: {Accept: 'text/event-stream'},
                         signal: abortRef.current.signal,
@@ -649,8 +644,8 @@ export function useTask({chat, convs}: Options) {
         [chat, convs, tenantId, handleEvent, persistAssistant, finish, pollTaskState, armWatchdog, clearWatchdog],
     );
 
-    // 用 max useRequest(manual) 管理 running 与发起
-    const {loading: running, run} = useRequest(doSend, {manual: true});
+    // 组件内 useRequest，不依赖 Umi 插件
+    const {loading: running, run} = useRequestLite(doSend);
     useEffect(() => {
         runningRef.current = running;
     }, [running]);
@@ -670,7 +665,7 @@ export function useTask({chat, convs}: Options) {
     const stop = useCallback(() => {
         const tid = taskIdRef.current;
         if (tid) {
-            copilotClient()
+            client
                 .del('/{workspaceID}/copilot/task/{id}', {
                     params: {path: {workspaceID: tenantId, id: tid}},
                 })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Sender } from '@ant-design/x';
 import { Sparkles } from 'lucide-react';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 
 interface ComposerProps {
   running: boolean;
@@ -10,8 +10,8 @@ interface ComposerProps {
 }
 
 export default function Composer({ running, onSend, onStop }: ComposerProps) {
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const fm = (id: string) => t(id);
   const [value, setValue] = useState('');
   const ref = useRef<{ focus: () => void } | null>(null);
 

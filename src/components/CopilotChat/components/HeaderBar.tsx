@@ -2,14 +2,11 @@ import {
   ArrowDown,
   Loader2,
   Menu,
-  Moon,
   ShieldCheck,
-  Sun,
   Trash2,
 } from 'lucide-react';
 import { Switch, Tooltip } from 'antd';
-import { useIntl } from '@umijs/max';
-type ThemeMode = 'light' | 'dark';
+import { useCopilot } from '../context';
 
 interface HeaderBarProps {
   title?: string;
@@ -21,8 +18,6 @@ interface HeaderBarProps {
   onClear: () => void;
   autoApprove: boolean;
   onDisableAutoApprove: () => void;
-  themeMode: ThemeMode;
-  onToggleTheme: () => void;
   onOpenSidebar: () => void;
 }
 
@@ -37,12 +32,10 @@ export default function HeaderBar(props: HeaderBarProps) {
     onClear,
     autoApprove,
     onDisableAutoApprove,
-    themeMode,
-    onToggleTheme,
     onOpenSidebar,
   } = props;
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const fm = (id: string) => t(id);
 
   return (
     <header className="copilot-header">
@@ -97,16 +90,7 @@ export default function HeaderBar(props: HeaderBarProps) {
         </Tooltip>
       )}
 
-      <Tooltip title={themeMode === 'dark' ? fm('copilot.header.theme.light') : fm('copilot.header.theme.dark')}>
-        <button
-          type="button"
-          className="cp-icon-btn"
-          aria-label={themeMode === 'dark' ? fm('copilot.header.theme.light') : fm('copilot.header.theme.dark')}
-          onClick={onToggleTheme}
-        >
-          {themeMode === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-        </button>
-      </Tooltip>
+
 
       <Tooltip title={autoFollow ? fm('copilot.header.follow.on') : fm('copilot.header.follow.off')}>
         <button

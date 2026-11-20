@@ -2,19 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import { Modal } from 'antd';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useModel, useRequest, getLocale } from '@umijs/max';
-import { copilotClient } from '@/services/clients';
+import { useCopilot } from '@/components/CopilotChat/context';
+import { useRequestLite } from './useRequestLite';
 import type { Block, ChatMessage, ConversationListResp, HistoryMessage, MessageListResp } from '@/types';
 import type { ChatState } from './useChatState';
-
-/** 中英切换辅助：用于 hooks 内的静态弹窗/提示文案（组件内统一用 useIntl） */
-const zhNow = () => getLocale().toLowerCase().startsWith('zh');
-const T = (zh: string, en: string) => (zhNow() ? zh : en);
 
 interface Options {
   chat: ChatState;
   /** running 镜像 ref：会话操作在任务运行中被禁用 */
   runningRef: MutableRefObject<boolean>;
+  /** 组件挂载时优先打开的会话 */
+  initialConversationId?: string;
 }
 
 /** 把服务端历史消息映射为渲染消息（blocks 原样恢复） */
@@ -28,15 +26,15 @@ function toRenderMessages(list: HistoryMessage[]): ChatMessage[] {
 }
 
 /**
- * 会话列表 + CRUD。统一使用 copilotClient()（openapi-fetch）+ @umijs/max 的 useRequest：
- * - 列表：useRequest 自动请求，refresh 刷新
- * - create / rename / delete：useRequest(manual)，onSuccess 刷新列表
+ * 会话列表 + CRUD。统一使用 client（openapi-fetch）+ 组件内 useRequestLite：
+ * - 列表：useInfiniteQuery 拉取，refresh 刷新
+ * - create / rename / delete：useRequestLite，onSuccess 刷新列表
  * - openConversation：函数式调用（await client）
  * 租户 id 取自 getInitialState → initialState.tenant.id（内嵌平台默认租户）。
  */
-export function useConversations({ chat, runningRef }: Options) {
-  const { initialState } = useModel('@@initialState');
-  const tenantId = initialState?.tenant?.id as string;
+export function useConversations({ chat, runningRef, initialConversationId }: Options) {
+  const { tenantId, client, locale } = useCopilot();
+  const T = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   const [activeConvId, setActiveConvIdState] = useState('');
   const activeConvIdRef = useRef('');
@@ -51,11 +49,11 @@ export function useConversations({ chat, runningRef }: Options) {
     queryKey: ['copilot-conversations', tenantId],
     enabled: !!tenantId,
     queryFn: ({ pageParam }) =>
-      copilotClient()
+      client
         .get('/{workspaceID}/copilot/conversations', {
           params: { query: { limit: PAGE_SIZE, offset: pageParam }, path: { workspaceID: tenantId } },
         })
-        .then((r) => r.data as unknown as ConversationListResp),
+        .then((r: any) => r.data as unknown as ConversationListResp),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
       const lastLen = lastPage?.conversations?.length ?? 0;
@@ -80,7 +78,7 @@ export function useConversations({ chat, runningRef }: Options) {
       const seq = ++openSeqRef.current;
       setOpenLoading(true);
       try {
-        const page = await copilotClient().get('/{workspaceID}/copilot/conversations/{id}/messages', {
+        const page = await client.get('/{workspaceID}/copilot/conversations/{id}/messages', {
           params: { path: { workspaceID: tenantId, id } },
         });
         if (seq !== openSeqRef.current) return;
@@ -108,40 +106,43 @@ export function useConversations({ chat, runningRef }: Options) {
     if (!listInf.data || !tenantId) return;
     bootRef.current = true;
     setBooted(true);
+    if (initialConversationId) {
+      void openConversation(initialConversationId);
+      return;
+    }
     // 用户已经开始新对话/正在运行时，不要用列表第一条覆盖当前界面
     if (runningRef.current || activeConvIdRef.current || chat.messages.length > 0) return;
     const convs = listInf.data?.pages?.[0]?.conversations || [];
     if (convs.length > 0) void openConversation(convs[0].id);
-  }, [listInf.data, openConversation, tenantId, chat.messages.length, runningRef]);
+  }, [listInf.data, openConversation, tenantId, chat.messages.length, runningRef, initialConversationId]);
 
   // ---------- mutations（onSuccess 刷新列表） ----------
-  const createReq = useRequest(
-    (title: string) =>
-      copilotClient().post('/{workspaceID}/copilot/conversations', {
+  const createReq = useRequestLite(
+    async (title: string) =>
+      client.post('/{workspaceID}/copilot/conversations', {
         params: { path: { workspaceID: tenantId } },
         body: { title },
       }),
-    { manual: true, onSuccess: () => refresh() },
+    { onSuccess: () => refresh() },
   );
 
-  const renameReq = useRequest(
-    ({ id, title }: { id: string; title: string }) =>
-      copilotClient().patch('/{workspaceID}/copilot/conversations/{id}', {
+  const renameReq = useRequestLite(
+    async ({ id, title }: { id: string; title: string }) =>
+      client.patch('/{workspaceID}/copilot/conversations/{id}', {
         params: { path: { workspaceID: tenantId, id } },
         body: { title },
       }),
-    { manual: true, onSuccess: () => refresh() },
+    { onSuccess: () => refresh() },
   );
 
-  const deleteReq = useRequest(
-    (id: string) =>
-      copilotClient().del('/{workspaceID}/copilot/conversations/{id}', {
+  const deleteReq = useRequestLite(
+    async (id: string) =>
+      client.del('/{workspaceID}/copilot/conversations/{id}', {
         params: { path: { workspaceID: tenantId, id } },
       }),
     {
-      manual: true,
-      onSuccess: (_data: unknown, params: unknown[]) => {
-        const id = params?.[0] as string;
+      onSuccess: (_data, args) => {
+        const id = args?.[0] as string;
         refresh();
         if (activeConvIdRef.current === id) {
           setActiveConvIdState('');

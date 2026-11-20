@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { theme } from 'antd';
 import * as echarts from 'echarts';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 
 /**
  * ECharts option 安全化。
@@ -156,7 +156,8 @@ function buildModernTheme(token: ReturnType<typeof theme.useToken>['token']): Re
  */
 export default function ChartBlock({ option, height = 288 }: ChartBlockProps) {
   const { token } = theme.useToken();
-  const intl = useIntl();
+  const { t } = useCopilot();
+  const intl = { formatMessage: (d: { id: string }) => t(d.id) };
   const isDark = luminance(token.colorBgLayout) < 0.5;
   const ref = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);

@@ -26,7 +26,7 @@ import ChartBlock from './ChartBlock';
 import A2UICard, { getA2UISurfaceTitle } from './A2UICard';
 import DataResultView, { canRenderDataResult } from './DataResultView';
 import { useEmotionCss } from '@ant-design/use-emotion-css';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 
 const MD_SANITIZE = {
   USE_PROFILES: { html: true },
@@ -37,8 +37,9 @@ const MD_SANITIZE = {
 // ---------------- 工具结果解析（实体列表 -> Table；否则 JSON） ----------------
 function ResultView({ content }: { content?: string }) {
   const { token } = theme.useToken();
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const intl = { formatMessage: (d: { id: string }, v?: Record<string, unknown>) => t(d.id, v as any) };
+  const fm = (id: string) => t(id);
   const parsed = useMemo(() => {
     if (!content) return null;
     try {
@@ -196,8 +197,9 @@ interface MessageItemProps {
 
 function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: MessageItemProps) {
   const { token } = theme.useToken();
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const intl = { formatMessage: (d: { id: string }, v?: Record<string, unknown>) => t(d.id, v as any) };
+  const fm = (id: string) => t(id);
 
   // Markdown 渲染 / JSON 高亮 / 打字机光标 / 阶段动画样式 —— 由本组件 useEmotionCss 提供，
   // 通过全局选择器作用于 dangerouslySetInnerHTML 注入的 .md-body / .json-hl HTML。

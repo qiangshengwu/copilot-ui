@@ -1,13 +1,13 @@
 import { ArrowRight, Building2, ChartLine, ShieldCheck, Sparkles, Terminal } from 'lucide-react';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 
 interface WelcomeProps {
   onPick: (text: string) => void;
 }
 
 export default function Welcome({ onPick }: WelcomeProps) {
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const fm = (id: string) => t(id);
 
   const CAPS = [
     { icon: <Building2 size={16} />, title: fm('copilot.welcome.cap.tenant'), desc: fm('copilot.welcome.cap.tenant.desc') },

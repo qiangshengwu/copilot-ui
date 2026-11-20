@@ -11,9 +11,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useModel } from '@umijs/max';
 import type { Conversation } from '@/types';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
@@ -29,7 +28,7 @@ interface ConversationSidebarProps {
   onRename: (id: string, title: string) => Promise<void> | void;
 }
 
-function formatTime(iso: string, intl: ReturnType<typeof useIntl>): string {
+function formatTime(iso: string, intl: { formatMessage: (d: { id: string }, v?: Record<string, unknown>) => string }): string {
   if (!iso) return '';
   const t = new Date(iso);
   if (Number.isNaN(t.getTime())) return '';
@@ -65,11 +64,9 @@ export default function ConversationSidebar({
   onRename,
 }: ConversationSidebarProps) {
   const { token } = theme.useToken();
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
-  const { initialState } = useModel('@@initialState') as {
-    initialState?: { tenant?: { name?: string; id?: string } };
-  };
+  const { t, tenantName: contextTenantName } = useCopilot();
+  const intl = { formatMessage: (d: { id: string }, v?: Record<string, unknown>) => t(d.id, v as any) };
+  const fm = (id: string) => t(id);
 
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -256,7 +253,7 @@ export default function ConversationSidebar({
     );
   };
 
-  const tenantName = initialState?.tenant?.name || fm('copilot.sidebar.tenant');
+  const tenantName = contextTenantName || fm('copilot.sidebar.tenant');
   const tenantInitial = (tenantName || 'T').trim().charAt(0).toUpperCase();
 
   return (

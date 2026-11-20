@@ -1,7 +1,7 @@
 import { Button, Tag, theme } from 'antd';
 import { AlertTriangle, Check, ShieldCheck, X } from 'lucide-react';
 import JsonView from './JsonView';
-import { useIntl } from '@umijs/max';
+import { useCopilot } from '../context';
 
 interface ApprovalCardProps {
   tool?: string;
@@ -21,15 +21,15 @@ export default function ApprovalCard({
   onApproveAndTrust,
 }: ApprovalCardProps) {
   const { token } = theme.useToken();
-  const intl = useIntl();
-  const fm = (id: string) => intl.formatMessage({ id });
+  const { t } = useCopilot();
+  const fm = (id: string) => t(id);
 
   const riskColor = risk === 'danger' ? token.colorError : risk === 'modify' ? token.colorWarning : token.colorInfo;
 
   return (
     <section
       role="alertdialog"
-      aria-label={intl.formatMessage({ id: 'copilot.msg.approval' }, { tool: tool || '' })}
+      aria-label={t('copilot.msg.approval', { tool: tool || '' })}
       style={{
         border: `1px solid color-mix(in srgb, ${riskColor} 34%, ${token.colorBorderSecondary})`,
         background: token.colorBgContainer,
@@ -58,7 +58,7 @@ export default function ApprovalCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13.5, fontWeight: 650 }}>
-              {intl.formatMessage({ id: 'copilot.msg.approval' }, { tool: tool || '' })}
+              {t('copilot.msg.approval', { tool: tool || '' })}
             </span>
             <Tag
               color={risk === 'danger' ? 'red' : risk === 'modify' ? 'orange' : 'blue'}
