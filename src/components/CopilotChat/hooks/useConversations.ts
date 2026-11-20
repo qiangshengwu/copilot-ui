@@ -51,7 +51,8 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
     enabled: !!tenantId,
     queryFn: ({ pageParam }) =>
       client
-        .get('/{workspaceID}/copilot/conversations', {
+        // openapi-fetch 0.17 只暴露大写方法（GET/POST/PATCH/DELETE），小写会得到 undefined
+        .GET('/{workspaceID}/copilot/conversations', {
           params: { query: { limit: PAGE_SIZE, offset: pageParam }, path: { workspaceID: tenantId } },
         })
         .then((r: any) => r.data as unknown as ConversationListResp),

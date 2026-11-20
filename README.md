@@ -23,26 +23,36 @@
 ```
 src/
   app.tsx                 Umi getInitialState（已登录时的租户初始化）
-  pages/index.tsx         主页面 + LoginGate
+  pages/index.tsx         演示页：LoginGate + CopilotChat
   components/
     LoginGate.tsx         账号密码登录
-    MessageItem.tsx       消息/过程块/Markdown/A2UI 渲染
-    A2UICard.tsx          自定义 A2UI 命令 -> XCard v0.9
-    ChartBlock.tsx        ECharts 懒加载封装
-    ChartBlockImpl.tsx    ECharts 实例与 option 安全化
-    DataResultView.tsx    时序/波形/FFT 专用展示
-    ConversationSidebar.tsx / HeaderBar.tsx / Composer.tsx / ApprovalCard.tsx
-  hooks/
-    useTask.ts            发送、SSE、审批、停止、断线轮询、落库
-    useChatState.ts       消息/块/rAF 流式合并
-    useConversations.ts   会话列表与 CRUD
+    BasePage/             页面容器（demo 未使用，可删）
+    CopilotChat/          可嵌入的 Agent 聊天组件（不依赖 Umi）
+      index.tsx           组件入口 + ChatShell（布局/滚动/侧栏/抽屉）
+      context.tsx         runtime（tenant/baseUrl/fetch/t）+ i18n
+      request.ts          openapi-fetch 客户端（保留 Request 头，防 POST 415）
+      styles.ts           useEmotionCss 注入的组件样式（无全局 CSS）
+      hooks/
+        useTask.ts        发送、SSE、审批、停止、看门狗、断线轮询、落库
+        useChatState.ts   消息/块/rAF 流式合并
+        useConversations.ts 会话列表（用 react-query 无限滚动）与 CRUD
+      components/
+        MessageItem.tsx   消息/过程块/Markdown/A2UI 渲染
+        A2UICard.tsx      自定义 A2UI 命令 -> XCard v0.9
+        ChartBlock.tsx    ECharts 懒加载封装
+        ChartBlockImpl.tsx ECharts 实例与 option 安全化（白名单/降级）
+        DataResultView.tsx 时序/波形/FFT 专用展示
+        ConversationSidebar.tsx / HeaderBar.tsx / Composer.tsx / ApprovalCard.tsx / Welcome.tsx / JsonView.tsx
   services/
     http.ts               authFetch + 401 事件
     auth.ts               /auth/login
-    responseInterceptor.ts openapi-fetch 适配器
   utils/
-    chartOption.ts        ECharts option 白名单/降级
     token.ts              localStorage token/tenant
+    graphql/client.ts     GraphQL 请求（走 authFetch）
+    date.ts               日期格式化（当前未被引用）
+  locales/
+    zh-CN.ts / en-US.ts   组件文案（两侧 key 对齐）
+  types.ts                SSE / 渲染模型类型
   types/
     copilot.d.ts          OpenAPI 生成类型（勿手改）
 ```

@@ -2,7 +2,7 @@ import {defineConfig} from '@umijs/max';
 
 // 统一走远端 nginx 统一入口 http://192.168.1.9（不写端口）：/auth、/graphql、/copilot、/task、/health
 // 全部由 nginx 反代到后端各服务；前端不感知具体服务端口。
-const TARGET = 'http://192.168.1.9';
+const TARGET = 'http://192.168.31.128';
 
 // dev server 的 compression 中间件会把 SSE 流 gzip 缓冲，
 // 浏览器 fetch ReadableStream 收不到字节；用 no-transform 跳过压缩。
@@ -49,7 +49,7 @@ export default defineConfig({
     proxy: {
         '/auth/login': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
         '/graphql': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
-        '/*/copilot/**': {target: TARGET, changeOrigin: true, onProxyRes: noTransform},
+        '/*/copilot/**': {target: 'http://127.0.0.1:9091', changeOrigin: true, onProxyRes: noTransform},
         '/health': {target: TARGET, changeOrigin: true},
     },
     npmClient: 'npm',

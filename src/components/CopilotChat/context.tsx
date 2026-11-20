@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useMemo } from 'react';
+import type { Client } from 'openapi-fetch';
 import zhCN from '@/locales/zh-CN';
 import enUS from '@/locales/en-US';
+import type { paths } from '@/types/copilot';
 
 export type CopilotLocale = 'zh-CN' | 'en-US';
 
@@ -16,7 +18,8 @@ export interface CopilotRuntimeConfig {
 export interface CopilotRuntime extends CopilotRuntimeConfig {
   t: (id: string, vars?: Record<string, string | number>) => string;
   isZh: boolean;
-  client: any;
+  /** OpenAPI 客户端。必须用大写方法名（GET/POST/PATCH/DELETE）. */
+  client: Client<paths>;
 }
 
 const messages = {

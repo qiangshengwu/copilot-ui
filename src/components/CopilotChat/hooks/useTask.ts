@@ -37,6 +37,9 @@ export function useTask({chat, convs}: Options) {
     // 审批期间暂停看门狗；审批提交中禁止重复点击
     const awaitingApprovalRef = useRef(false);
     const approvalBusyRef = useRef(false);
+    // 审批卡所属的助手消息 id：断线恢复时 finish() 会清空 curMsgIdRef，
+    // 审批仍要能更新/收尾原消息，否则卡片会永久停在“待审批”且按钮可重复点击。
+    const approvalMsgIdRef = useRef<string | null>(null);
 
     // ---------- 审批 ----------
     const doApprove = useCallback(
@@ -51,7 +54,8 @@ export function useTask({chat, convs}: Options) {
                 awaitingApprovalRef.current = false;
                 return true;
             } catch (e) {
-                chat.appendBlock({
+                // 按消息 id 追加：断线后 curMsgIdRef 已清空，appendBlock 会静默丢弃错误提示
+                chat.appendBlockById(approvalMsgIdRef.current, {
                     id: newBlockId(),
                     kind: 'error',
                     errorText: `${T('审批提交失败', 'Failed to submit approval')}: ${(e as Error).message}`,
@@ -64,7 +68,7 @@ export function useTask({chat, convs}: Options) {
 
     const settleApproval = useCallback(
         (ok: boolean) => {
-            chat.updateCur((m) => ({
+            chat.updateById(approvalMsgIdRef.current, (m) => ({
                 ...m,
                 blocks: m.blocks.map((b) =>
                     b.kind === 'approval_pending'
@@ -74,6 +78,7 @@ export function useTask({chat, convs}: Options) {
                 phase: undefined,
                 phaseBusy: false,
             }));
+            approvalMsgIdRef.current = null;
         },
         [chat],
     );
@@ -81,8 +86,11 @@ export function useTask({chat, convs}: Options) {
     const handleApprove = useCallback(
         async (ok: boolean) => {
             if (approvalBusyRef.current) return;
+            // 审批卡所属消息：优先用登记的消息 id（断线后 curMsgIdRef 为空）
+            const msgId = approvalMsgIdRef.current || chat.curMsgIdRef.current;
+            if (!msgId) return;
             approvalBusyRef.current = true;
-            chat.updateCur((m) => ({
+            chat.updateById(msgId, (m) => ({
                 ...m,
                 blocks: m.blocks.map((b) =>
                     b.kind === 'approval_pending' ? {...b, approvalSubmitting: true} : b,
@@ -93,7 +101,7 @@ export function useTask({chat, convs}: Options) {
             if (success) {
                 settleApproval(ok);
             } else {
-                chat.updateCur((m) => ({
+                chat.updateById(msgId, (m) => ({
                     ...m,
                     blocks: m.blocks.map((b) =>
                         b.kind === 'approval_pending' ? {...b, approvalSubmitting: false} : b,
@@ -262,9 +270,13 @@ export function useTask({chat, convs}: Options) {
                 }
                 if (st === 'approval') {
                     awaitingApprovalRef.current = false;
+                    // 登记审批卡所属消息，供断线后仍能收尾
+                    approvalMsgIdRef.current = chat.curMsgIdRef.current;
                     // 审批 HTTP 成功时已乐观标记；SSE 回写只更新既有块，避免重复卡片
-                    chat.updateCur((m) => {
+                    chat.updateById(approvalMsgIdRef.current, (m) => {
                         if (!m.blocks.some((b) => b.kind === 'approval_pending')) {
+                            // 前端已乐观收尾过：不再追加第二条“已批准/已拒绝”
+                            if (m.blocks.some((b) => b.kind === 'approval_result')) return m;
                             return {
                                 ...m,
                                 blocks: [
@@ -322,6 +334,7 @@ export function useTask({chat, convs}: Options) {
                     return false;
                 }
                 awaitingApprovalRef.current = true;
+                approvalMsgIdRef.current = chat.curMsgIdRef.current;
                 chat.appendBlock({
                     id: newBlockId(),
                     kind: 'approval_pending',
@@ -387,7 +400,8 @@ export function useTask({chat, convs}: Options) {
     // ---------- SSE 流看门狗 ----------
     // 阈值 25s：明显大于 LLM 两次事件的最大间隔（~8s，含长思考/工具调用），避免误判；
     // 又小于浏览器代理挂死时的无限等待。每收到一个事件就重置（清旧开新）。
-    const WATCHDOG_MS = 60_000;
+    // 误判的代价只是提前 abort 并降级到轮询 GET /task（无副作用、不丢答案）。
+    const WATCHDOG_MS = 25_000;
     const clearWatchdog = useCallback(() => {
         if (watchdogRef.current != null) {
             clearTimeout(watchdogRef.current);
@@ -537,6 +551,7 @@ export function useTask({chat, convs}: Options) {
             chat.appendMessages([userMsg, asstMsg]);
             chat.curMsgIdRef.current = asstMsg.id;
             chat.finishedRef.current = false;
+            approvalMsgIdRef.current = null;
             chat.finalAnswerRef.current = '';
             chat.clearPendingFinal();
             abortByWatchdogRef.current = false;
@@ -561,7 +576,7 @@ export function useTask({chat, convs}: Options) {
                     chat.appendBlock({
                         id: newBlockId(),
                         kind: 'error',
-                        errorText: `${T('创建任务失败', 'Failed to create task')}: ${(created.error as Error)?.message ?? T('未知错误', 'Unknown error')}`,
+                        errorText: `${T('创建任务失败', 'Failed to create task')}: ${(created.error as unknown as Error)?.message ?? T('未知错误', 'Unknown error')}`,
                     });
                     await persistAssistant(convIdStr, asstMsg.id);
                     finish();
@@ -667,7 +682,7 @@ export function useTask({chat, convs}: Options) {
         const tid = taskIdRef.current;
         if (tid) {
             client
-                .del('/{workspaceID}/copilot/task/{id}', {
+                .DELETE('/{workspaceID}/copilot/task/{id}', {
                     params: {path: {workspaceID: tenantId, id: tid}},
                 })
                 .catch(() => {
@@ -688,6 +703,19 @@ export function useTask({chat, convs}: Options) {
             }));
         }
         awaitingApprovalRef.current = false;
+        // 停止任务时若审批卡还挂着，服务端已不会再执行，收尾为「未批准」
+        const approvalMsgId = approvalMsgIdRef.current;
+        if (approvalMsgId) {
+            chat.updateById(approvalMsgId, (m) => ({
+                ...m,
+                blocks: m.blocks.map((b) =>
+                    b.kind === 'approval_pending'
+                        ? {...b, kind: 'approval_result', approved: false, approvalSubmitting: false}
+                        : b,
+                ),
+            }));
+            approvalMsgIdRef.current = null;
+        }
         pollAbortRef.current?.abort(); // 终止断线恢复轮询
         if (watchdogRef.current != null) clearTimeout(watchdogRef.current); // 停掉看门狗
         abortRef.current?.abort();
