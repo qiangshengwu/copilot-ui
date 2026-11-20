@@ -79,7 +79,7 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
       const seq = ++openSeqRef.current;
       setOpenLoading(true);
       try {
-        const page = await client.get('/{workspaceID}/copilot/conversations/{id}/messages', {
+        const page = await client.GET('/{workspaceID}/copilot/conversations/{id}/messages', {
           params: { path: { workspaceID: tenantId, id } },
         });
         if (seq !== openSeqRef.current) return;
@@ -120,7 +120,7 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
   // ---------- mutations（onSuccess 刷新列表） ----------
   const createReq = useRequestLite(
     async (title: string) =>
-      client.post('/{workspaceID}/copilot/conversations', {
+      client.POST('/{workspaceID}/copilot/conversations', {
         params: { path: { workspaceID: tenantId } },
         body: { title },
       }),
@@ -129,7 +129,7 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
 
   const renameReq = useRequestLite(
     async ({ id, title }: { id: string; title: string }) =>
-      client.patch('/{workspaceID}/copilot/conversations/{id}', {
+      client.PATCH('/{workspaceID}/copilot/conversations/{id}', {
         params: { path: { workspaceID: tenantId, id } },
         body: { title },
       }),
@@ -138,7 +138,7 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
 
   const deleteReq = useRequestLite(
     async (id: string) =>
-      client.del('/{workspaceID}/copilot/conversations/{id}', {
+      client.DELETE('/{workspaceID}/copilot/conversations/{id}', {
         params: { path: { workspaceID: tenantId, id } },
       }),
     {

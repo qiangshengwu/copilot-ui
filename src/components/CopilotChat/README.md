@@ -62,7 +62,7 @@ react antd @ant-design/x @ant-design/x-sdk
 @ant-design/use-emotion-css
 @tanstack/react-query
 lucide-react
-openapi-fetch
+openapi-fetch@0.17.0
 echarts
 ```
 

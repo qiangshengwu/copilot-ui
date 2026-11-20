@@ -44,7 +44,7 @@ export function useTask({chat, convs}: Options) {
             const tid = taskIdRef.current;
             if (!tid || !tenantId) return false;
             try {
-                await client.post('/{workspaceID}/copilot/task/approve', {
+                await client.POST('/{workspaceID}/copilot/task/approve', {
                     params: {path: {workspaceID: tenantId}},
                     body: {task_id: tid, approved: ok},
                 });
@@ -132,7 +132,7 @@ export function useTask({chat, convs}: Options) {
             const content = m.content || m.streamingContent || '';
             const blocks = m.blocks && m.blocks.length ? m.blocks : null;
             try {
-                await client.post('/{workspaceID}/copilot/conversations/{id}/messages', {
+                await client.POST('/{workspaceID}/copilot/conversations/{id}/messages', {
                     params: {path: {workspaceID: tenantId, id: convId}},
                     body: {role: 'assistant', content, blocks: blocks as never},
                 });
@@ -517,7 +517,7 @@ export function useTask({chat, convs}: Options) {
 
             // user 消息落库（失败不阻塞任务，但已尽力入列）
             try {
-                await client.post('/{workspaceID}/copilot/conversations/{id}/messages', {
+                await client.POST('/{workspaceID}/copilot/conversations/{id}/messages', {
                     params: {path: {workspaceID: tenantId, id: convIdStr}},
                     body: {role: 'user', content: prompt, blocks: null},
                 });
@@ -552,7 +552,7 @@ export function useTask({chat, convs}: Options) {
 
             try {
                 // 1. 创建任务（标准 REST，copilotClient 统一鉴权 + 复用停止用 signal）
-                const created = await client.post('/{workspaceID}/copilot/task', {
+                const created = await client.POST('/{workspaceID}/copilot/task', {
                     params: {path: {workspaceID: tenantId}},
                     body,
                     signal: abortRef.current.signal,
