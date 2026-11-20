@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { ConfigProvider, Drawer } from 'antd';
+import { App as AntdApp, ConfigProvider, Drawer } from 'antd';
 import { XProvider } from '@ant-design/x';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import zhCN from 'antd/locale/zh_CN';
@@ -106,20 +106,22 @@ export default function CopilotChat({
 
   return (
     <ConfigProvider locale={antdLocale}>
-      <XProvider locale={antdLocale}>
-        <QueryClientProvider client={qc}>
-          <CopilotProvider value={runtime}>
-            <ChatShell
-              title={title}
-              height={height}
-              className={className}
-              style={style}
-              initialConversationId={initialConversationId}
-              onConversationChange={onConversationChange}
-            />
-          </CopilotProvider>
-        </QueryClientProvider>
-      </XProvider>
+      <AntdApp component={false}>
+        <XProvider locale={antdLocale}>
+          <QueryClientProvider client={qc}>
+            <CopilotProvider value={runtime}>
+              <ChatShell
+                title={title}
+                height={height}
+                className={className}
+                style={style}
+                initialConversationId={initialConversationId}
+                onConversationChange={onConversationChange}
+              />
+            </CopilotProvider>
+          </QueryClientProvider>
+        </XProvider>
+      </AntdApp>
     </ConfigProvider>
   );
 }

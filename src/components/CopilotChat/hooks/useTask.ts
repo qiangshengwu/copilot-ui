@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef} from 'react';
 import type {MutableRefObject} from 'react';
-import {Modal} from 'antd';
+import {App as AntdApp} from 'antd';
 import {useCopilot} from '../context';
 import {useRequestLite} from './useRequestLite';
 import {XStream} from '@ant-design/x-sdk';
@@ -22,6 +22,7 @@ interface Options {
  */
 export function useTask({chat, convs}: Options) {
     const {tenantId, client, fetch: requestFetch, baseUrl, locale} = useCopilot();
+    const {modal} = AntdApp.useApp();
     const T = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
     const taskIdRef = useRef<string | null>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -104,7 +105,7 @@ export function useTask({chat, convs}: Options) {
     );
 
     const handleApproveAndTrust = useCallback(() => {
-        Modal.confirm({
+        modal.confirm({
             title: T('开启本对话一键批准？', 'Enable one-click approval for this chat?'),
             content: T(
                 '开启后，本对话内所有后续写操作 / 删除操作将被自动批准并立即执行，可能造成不可恢复的数据变更。是否确认开启？',
@@ -490,7 +491,7 @@ export function useTask({chat, convs}: Options) {
             if (!prompt) return;
             if (runningRef.current) return;
             if (!tenantId) {
-                Modal.error({
+                modal.error({
                     title: T('租户未就绪', 'Tenant not ready'),
                     content: T('请先登录并等待租户加载完成。', 'Please sign in and wait for the tenant to load.'),
                 });
@@ -505,7 +506,7 @@ export function useTask({chat, convs}: Options) {
                     convId = conv.id;
                     convs.setActiveConvId(convId);
                 } catch (e) {
-                    Modal.error({
+                    modal.error({
                         title: T('创建会话失败', 'Failed to create conversation'),
                         content: T(`无法创建历史会话：${(e as Error).message}`, `Failed to create history conversation: ${(e as Error).message}`),
                     });

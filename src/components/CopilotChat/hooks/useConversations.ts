@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import { Modal } from 'antd';
+import { App as AntdApp } from 'antd';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useCopilot } from '@/components/CopilotChat/context';
 import { useRequestLite } from './useRequestLite';
@@ -34,6 +34,7 @@ function toRenderMessages(list: HistoryMessage[]): ChatMessage[] {
  */
 export function useConversations({ chat, runningRef, initialConversationId }: Options) {
   const { tenantId, client, locale } = useCopilot();
+  const { modal } = AntdApp.useApp();
   const T = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
 
   const [activeConvId, setActiveConvIdState] = useState('');
@@ -197,7 +198,7 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
   const deleteCurrent = useCallback(() => {
     const id = activeConvIdRef.current;
     if (!id) return;
-    Modal.confirm({
+    modal.confirm({
       title: T('删除当前会话？', 'Delete current conversation?'),
       content: T('将删除该会话及其全部消息（服务端持久化，不可恢复）。', 'The conversation and all its messages will be deleted (persisted server-side, irreversible).'),
       okText: T('删除', 'Delete'),
