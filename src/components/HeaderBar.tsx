@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Switch, Tooltip } from 'antd';
 import { useIntl } from '@umijs/max';
-import type { ThemeMode } from '@/theme';
+type ThemeMode = 'light' | 'dark';
 
 interface HeaderBarProps {
   title?: string;

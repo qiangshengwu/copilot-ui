@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { graphqlClient } from '@/utils/graphql/client';
 import { getLogin, setTenant, tokenExpired, delLogin } from '@/utils/token';
-import { applyTheme, getInitialTheme } from '@/theme';
 import {
   ListTenantsDocument,
   type ListTenantsQuery,
@@ -12,7 +11,6 @@ import {
 
 // 在 React 首次渲染前应用主题，避免深色模式闪白
 if (typeof document !== 'undefined') {
-  applyTheme(getInitialTheme());
   document.documentElement.style.height = '100%';
   document.body.style.height = '100%';
   document.body.style.margin = '0';

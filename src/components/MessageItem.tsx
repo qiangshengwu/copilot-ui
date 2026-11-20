@@ -466,7 +466,7 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
         size={30}
         className="cp-msg-avatar"
         icon={<Bot size={15} />}
-        style={{ background: 'linear-gradient(135deg, #6d6af0, #9a7bf5)' }}
+        style={{ background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})` }}
       />
       <div className="cp-msg-body">
         <div className="cp-msg-head">
