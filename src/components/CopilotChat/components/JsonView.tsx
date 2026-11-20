@@ -11,8 +11,7 @@ interface JsonViewProps {
 
 /**
  * JSON 查看组件：基于 react-json-view（ReactJson）。
- * 可折叠 / 复制 / 语法高亮；theme 用 useToken 自定义 base16 颜色，跟随 antd 亮暗主题；
- * 容器样式由 useEmotionCss 组件内提供。
+ * 可折叠 / 复制 / 语法高亮；base16 主题由 antd token 生成，自动跟随亮暗。
  */
 export default function JsonView({ value, maxDepth = 3 }: JsonViewProps) {
   const { token } = theme.useToken();
@@ -39,7 +38,6 @@ export default function JsonView({ value, maxDepth = 3 }: JsonViewProps) {
   }
   if (v === null || typeof v !== 'object') v = { value: v };
 
-  // base16 主题，映射 antd token（亮/暗自动适配）
   const rjvTheme = {
     scheme: 'copilot',
     base00: token.colorFillQuaternary, // 背景

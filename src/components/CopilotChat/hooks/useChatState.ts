@@ -26,7 +26,6 @@ export function useChatState() {
   const autoApproveRef = useRef(autoApprove);
   autoApproveRef.current = autoApprove;
 
-  // ---------- final 事件 rAF 节流 ----------
   const rafRef = useRef<number | null>(null);
   const pendingFinalRef = useRef('');
 

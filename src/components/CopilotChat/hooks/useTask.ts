@@ -16,7 +16,7 @@ interface Options {
 
 /**
  * 任务全链路：发送 / 停止 / 审批 / 终态落库 / SSE 事件分发。
- * - 发送用 ahooks useRequest(manual) 管理 running 与发起；
+ * - 发送用组件内 useRequestLite 管理 running 与发起；
  * - SSE 消费循环（XStream AsyncGenerator）留在本 hook，break/return 时自动取消底层流；
  * - AbortController 同时控制 POST /task 与 GET /stream。
  */
@@ -41,7 +41,6 @@ export function useTask({chat, convs}: Options) {
     // 审批仍要能更新/收尾原消息，否则卡片会永久停在“待审批”且按钮可重复点击。
     const approvalMsgIdRef = useRef<string | null>(null);
 
-    // ---------- 审批 ----------
     const doApprove = useCallback(
         async (ok: boolean): Promise<boolean> => {
             const tid = taskIdRef.current;
@@ -130,7 +129,6 @@ export function useTask({chat, convs}: Options) {
         });
     }, [chat, handleApprove]);
 
-    // ---------- 终态落库 ----------
     const persistAssistant = useCallback(
         async (convId: string, asstId: string) => {
             if (!convId) return;
@@ -152,7 +150,6 @@ export function useTask({chat, convs}: Options) {
         [chat, convs, tenantId],
     );
 
-    // ---------- SSE 事件处理 ----------
     const handleEvent = useCallback(
         (ev: SSEEvent): boolean => {
             const t = ev.type;
@@ -385,7 +382,6 @@ export function useTask({chat, convs}: Options) {
         [chat, doApprove],
     );
 
-    // ---------- 完成收尾 ----------
     const finish = useCallback(() => {
         chat.cancelFinalRaf();
         taskIdRef.current = null;
@@ -397,8 +393,7 @@ export function useTask({chat, convs}: Options) {
         awaitingApprovalRef.current = false;
     }, [chat]);
 
-    // ---------- SSE 流看门狗 ----------
-    // 阈值 25s：明显大于 LLM 两次事件的最大间隔（~8s，含长思考/工具调用），避免误判；
+    // SSE 看门狗：阈值 25s：明显大于 LLM 两次事件的最大间隔（~8s，含长思考/工具调用），避免误判；
     // 又小于浏览器代理挂死时的无限等待。每收到一个事件就重置（清旧开新）。
     // 误判的代价只是提前 abort 并降级到轮询 GET /task（无副作用、不丢答案）。
     const WATCHDOG_MS = 25_000;
@@ -420,7 +415,7 @@ export function useTask({chat, convs}: Options) {
         }, WATCHDOG_MS);
     }, [chat, clearWatchdog]);
 
-    // ---------- 断线后轮询任务终态（只读 GET /task/{id}，不触发任务重跑） ----------
+    // 断线后轮询任务终态（只读 GET /task/{id}，不触发任务重跑）。
     // 背景：agent server 写超时会硬切 SSE 长连接，终态事件丢失。该端点纯读状态、无副作用，
     // 重复订阅 /stream 会重跑任务，因此用轮询而非重连；最多持续 5 分钟，审批期间继续轮询。
     const pollTaskState = useCallback(
@@ -498,7 +493,6 @@ export function useTask({chat, convs}: Options) {
         [],
     );
 
-    // ---------- 发送 ----------
     const doSend = useCallback(
         async (text: string) => {
             const prompt = (text || '').trim();
@@ -557,8 +551,7 @@ export function useTask({chat, convs}: Options) {
             abortByWatchdogRef.current = false;
 
             abortRef.current = new AbortController();
-            // history：当前会话已加载消息的 role/content 对，slice(-20)
-            // （此时 appendMessages 尚未 flush，msgRef 仍为旧消息，与原实现一致，不含刚发的 user）
+            // history 取已加载消息（appendMessages 尚未 flush，故不含刚发的 user）
             const history = chat.msgRef.current
                 .filter((m) => (m.role === 'user' || m.role === 'assistant') && !!m.content)
                 .slice(-20)
@@ -566,7 +559,7 @@ export function useTask({chat, convs}: Options) {
             const body = {prompt, history};
 
             try {
-                // 1. 创建任务（标准 REST，copilotClient 统一鉴权 + 复用停止用 signal）
+                // 创建任务；signal 与 stop 共享，可中断。
                 const created = await client.POST('/{workspaceID}/copilot/task', {
                     params: {path: {workspaceID: tenantId}},
                     body,
@@ -585,7 +578,7 @@ export function useTask({chat, convs}: Options) {
                 const taskId = (created.data as { id: string }).id;
                 taskIdRef.current = taskId;
 
-                // 2. 订阅 SSE 流式端点（订阅后后端启动任务，事件不丢）
+                // 订阅 SSE；后端在订阅后才启动任务，避免事件丢失。
                 const streamResp = await requestFetch(
                     `${baseUrl}/${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
                     {
@@ -660,7 +653,6 @@ export function useTask({chat, convs}: Options) {
         [chat, convs, tenantId, handleEvent, persistAssistant, finish, pollTaskState, armWatchdog, clearWatchdog],
     );
 
-    // 组件内 useRequest，不依赖 Umi 插件
     const {loading: running, run} = useRequestLite(doSend);
     useEffect(() => {
         runningRef.current = running;
@@ -677,7 +669,7 @@ export function useTask({chat, convs}: Options) {
             });
     }, [run]);
 
-    // ---------- 停止：先 DELETE 任务，再 abort 流，走 finish 清理 ----------
+    // 停止：先 DELETE 任务，再 abort 流，最后统一走 finish 清理。
     const stop = useCallback(() => {
         const tid = taskIdRef.current;
         if (tid) {

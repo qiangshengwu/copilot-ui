@@ -1,5 +1,4 @@
-// 聊天渲染态的纯工具函数（原 index.tsx 内联辅助）。
-// 不依赖 React，便于多 hook 复用与单测。
+// 渲染态纯工具函数：不依赖 React，便于跨 hook 复用与单测。
 
 export interface PendingTool {
   name: string;

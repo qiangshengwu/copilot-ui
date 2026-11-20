@@ -6,22 +6,22 @@ import type { A2UICommand } from '@/types';
 import ChartBlock from './ChartBlock';
 import { useCopilot, type CopilotLocale } from '../context';
 
-// ============================================================
-// 后端协议 -> XCard.Box v0.9 命令格式 转换层
-//
-// 后端冻结协议（SSE data.content 解析后的命令数组元素）：
-//   {type:'createSurface', surface:{id,title}}
-//   {type:'updateComponents', surfaceId, components:{nodeId:{type,props}}}
-//   {type:'updateDataModel', surfaceId, path, value}
-//   {type:'deleteSurface', surfaceId}
-//
-// @ant-design/x-card v0.9 实际期望：
-//   {version:'v0.9', createSurface:{surfaceId, catalogId?}}
-//   {version:'v0.9', updateComponents:{surfaceId, components:[{id,component,...props}]}}
-//   {version:'v0.9', updateDataModel:{surfaceId,path,value}}
-//   {version:'v0.9', deleteSurface:{surfaceId}}
-// 且组件树必须有 id==='root' 的根节点（transformer 返回 componentMap.get('root')）。
-// ============================================================
+/**
+ * 后端协议 -> XCard.Box v0.9 命令转换层。
+ *
+ * 后端冻结协议（SSE data.content 解析后的命令数组元素）：
+ *   {type:'createSurface', surface:{id,title}}
+ *   {type:'updateComponents', surfaceId, components:{nodeId:{type,props}}}
+ *   {type:'updateDataModel', surfaceId, path, value}
+ *   {type:'deleteSurface', surfaceId}
+ *
+ * @ant-design/x-card v0.9 实际期望：
+ *   {version:'v0.9', createSurface:{surfaceId, catalogId?}}
+ *   {version:'v0.9', updateComponents:{surfaceId, components:[{id,component,...props}]}}
+ *   {version:'v0.9', updateDataModel:{surfaceId,path,value}}
+ *   {version:'v0.9', deleteSurface:{surfaceId}}
+ * 且组件树必须有 id==='root' 的根节点（transformer 返回 componentMap.get('root')）。
+ */
 
 interface SurfacePlan {
   surfaceId: string;
@@ -150,10 +150,7 @@ export function getA2UISurfaceTitle(commands?: A2UICommand[]): string | undefine
   return undefined;
 }
 
-// ============================================================
-// 组件实现（注册到 XCard.Box 的 components map）
-// 全部使用 antd 组件 + useToken，暗色主题天然适配
-// ============================================================
+// 组件实现：注册到 XCard.Box 的 components map，均基于 antd + useToken，跟随主题亮暗。
 
 const TextComponent: React.FC<{ content?: React.ReactNode }> = ({ content }) => (
   <Typography.Text style={{ fontSize: 14, lineHeight: 1.7 }}>
@@ -234,9 +231,7 @@ const UnknownComponent: React.FC<{ __type?: string }> = ({ __type }) => {
   );
 };
 
-// ============================================================
-// 错误边界：XCard 渲染抛错时降级为一行轻量提示，不白屏
-// ============================================================
+/** XCard 渲染抛错时降级为一行提示，不白屏。 */
 interface EBState {
   hasError: boolean;
 }
@@ -264,9 +259,6 @@ class A2UIErrorBoundary extends React.Component<
   }
 }
 
-// ============================================================
-// 主组件
-// ============================================================
 export interface A2UICardProps {
   commands?: A2UICommand[];
   a2uiRaw?: string;
@@ -277,7 +269,7 @@ export default function A2UICard({ commands, a2uiRaw }: A2UICardProps) {
   const { t, locale } = useCopilot();
   const intl = { formatMessage: (d: { id: string }) => t(d.id) };
 
-  // 纵向容器样式（备用，实际 ColumnComponent 用 inline token 样式）
+  // 容器样式：统一文本颜色与表格字号
   const boxCss = useEmotionCss(({ token }) => ({
     fontSize: 14,
     color: token.colorText,

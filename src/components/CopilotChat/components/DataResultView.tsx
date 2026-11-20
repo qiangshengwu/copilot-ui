@@ -237,7 +237,6 @@ function buildTrendChart(points: any[]): Record<string, unknown> | null {
       seriesOrder.push(name);
     }
   }
-  // 每个点落到对应时间标签
   const idxOf = new Map(labels.map((lb, i) => [lb, i]));
   for (const p of ordered) {
     const name = p.metric_name || p.name || '—';
@@ -262,8 +261,7 @@ function buildTrendChart(points: any[]): Record<string, unknown> | null {
   };
 }
 
-/** 识别波形 / 时序 / 频谱结果并渲染；无法识别返回 null（由上层回退 JsonView）。 */
-/** 判断是否为 DataResultView 支持的三种结构（供调用方决定是否渲染，避免条件 hooks）。 */
+/** 判断是否为支持的三种结构，供调用方决定是否渲染（避免条件 hooks）。 */
 export function canRenderDataResult(value: any): boolean {
   if (!value || typeof value !== 'object') return false;
   if (value.decoded && Array.isArray(value.channels)) return true;
@@ -272,6 +270,7 @@ export function canRenderDataResult(value: any): boolean {
   return false;
 }
 
+/** 渲染波形 / 时序 / 频谱结果；无法识别返回 null（由上层回退 JsonView）。 */
 export default function DataResultView({ value }: { value: any }) {
   if (!value || typeof value !== 'object') return null;
   if (value.decoded === true && Array.isArray(value.channels)) {

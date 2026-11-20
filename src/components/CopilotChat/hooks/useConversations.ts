@@ -30,7 +30,7 @@ function toRenderMessages(list: HistoryMessage[]): ChatMessage[] {
  * - 列表：useInfiniteQuery 拉取，refresh 刷新
  * - create / rename / delete：useRequestLite，onSuccess 刷新列表
  * - openConversation：函数式调用（await client）
- * 租户 id 取自 getInitialState → initialState.tenant.id（内嵌平台默认租户）。
+ * 租户 id 由宿主通过 tenantId 注入。
  */
 export function useConversations({ chat, runningRef, initialConversationId }: Options) {
   const { tenantId, client, locale } = useCopilot();
@@ -44,7 +44,6 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
   const [openLoading, setOpenLoading] = useState(false);
   const [booted, setBooted] = useState(false);
 
-  // ---------- 列表查询（无限滚动：触底加载下一页） ----------
   const PAGE_SIZE = 50;
   const listInf = useInfiniteQuery({
     queryKey: ['copilot-conversations', tenantId],
@@ -63,7 +62,6 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
       return allPages.reduce((n, p) => n + (p?.conversations?.length ?? 0), 0);
     },
   });
-  // 累加所有已加载页
   const conversations = listInf.data?.pages.flatMap((p) => p?.conversations ?? []) ?? [];
   const listLoading = listInf.isLoading;
   const refresh = listInf.refetch;
@@ -71,7 +69,6 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
   const hasMore = listInf.hasNextPage;
   const loadingMore = listInf.isFetchingNextPage;
 
-  // ---------- 打开会话 ----------
   // 用递增序号丢弃过期响应：A→B 快速切换时，A 的慢响应不能覆盖 B。
   const openSeqRef = useRef(0);
   const openConversation = useCallback(
@@ -118,7 +115,6 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
     if (convs.length > 0) void openConversation(convs[0].id);
   }, [listInf.data, openConversation, tenantId, chat.messages.length, runningRef, initialConversationId]);
 
-  // ---------- mutations（onSuccess 刷新列表） ----------
   const createReq = useRequestLite(
     async (title: string) =>
       client.POST('/{workspaceID}/copilot/conversations', {
@@ -154,7 +150,6 @@ export function useConversations({ chat, runningRef, initialConversationId }: Op
     },
   );
 
-  // ---------- 暴露给侧栏/顶栏的动作 ----------
   /** 新建会话：仅本地重置；服务端会话在首次发送时创建 */
   const newConversation = useCallback(() => {
     if (runningRef.current) return;

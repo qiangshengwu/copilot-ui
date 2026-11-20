@@ -34,7 +34,6 @@ const MD_SANITIZE = {
   FORBID_ATTR: ['style'],
 } as const;
 
-// ---------------- 工具结果解析（实体列表 -> Table；否则 JSON） ----------------
 function ResultView({ content }: { content?: string }) {
   const { token } = theme.useToken();
   const { t } = useCopilot();
@@ -138,9 +137,8 @@ function ResultView({ content }: { content?: string }) {
   return <JsonView value={parsed} />;
 }
 
-// ---------------- 最终回答美化：把 A2UI 命令 JSON 码块渲染成结构化卡片 ----------------
-// ```json\n[{type:"createSurface"...},...] ``` 这类码块若为后端 A2UI 命令，从 markdown 中摘出，
-// 用 A2UICard 渲染成结构化卡片（Statistic/Table/Chart 等），避免最终回答仍是大段纯文字 JSON。
+// 把最终回答里的 A2UI 命令 JSON 码块从 markdown 中摘出，改用 A2UICard 渲染，
+// 避免结果区仍是大段纯文本 JSON。
 function splitA2UIJsonBlocks(md: string): { text: string; cards: A2UICommand[][] } {
   const cards: A2UICommand[][] = [];
   // parts 交替为 [文本, json, 文本, json, ...]
@@ -257,7 +255,6 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
     },
     '.md-body table thead th': { background: token.colorFillSecondary, fontWeight: 600, fontSize: 12 },
     '.md-body table tbody tr:nth-child(even)': { background: token.colorFillQuaternary },
-    // 打字机光标
     '.type-cursor': {
       display: 'inline-block',
       width: 2,
@@ -277,7 +274,6 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
     },
   }));
 
-  // 实体/图表/错误等始终可见卡片：hover 轻抬升（替代全局 .copilot-card）
   const cardClass = useEmotionCss(({ token }) => ({
     border: `1px solid ${token.colorPrimaryBorder}`,
     borderRadius: token.borderRadiusLG,
@@ -343,7 +339,6 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
     }
   };
 
-  // ---------- 用户消息 ----------
   if (msg.role === 'user') {
     return (
       <div className="cp-msg cp-msg-user cp-fade-up">
@@ -359,7 +354,7 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
   }
 
 
-  // ---------- 助手消息：把 blocks 转成 ThoughtChain items ----------
+  // 助手消息：blocks -> ThoughtChain 步骤 + 常驻卡片
   // 实体类工具结果（可渲染为表格）提升为始终可见卡片，不进 ThoughtChain 折叠，避免重复。
   const isEntityResult = (b: Block) => {
     if (b.kind !== 'tool_result' || !b.resultContent) return false;
@@ -436,7 +431,6 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
           content: <ResultView content={b.resultContent} />,
         };
       }
-      // approval_result
       return {
         key: b.id,
         icon: b.approved ? <CheckCircle2 size={14} /> : <XCircle size={14} />,
@@ -447,17 +441,13 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
     // 默认折叠：只展示步骤标题，展开后才显示 JSON/长文本
     .map((item) => ({...item, collapsible: true}));
 
-  // 始终可见的块（chart / approval_pending / error / a2ui）
   const alwaysBlocks = msg.blocks.filter(
     (b) => b.kind === 'chart' || b.kind === 'approval_pending' || b.kind === 'error' || b.kind === 'a2ui',
   );
-  // 实体类工具结果：始终可见的精美表格卡片（设备/实体列表等）
   const entityBlocks = msg.blocks.filter((b) => isEntityResult(b));
-  // 设备数据结果（时序/波形）：始终可见卡片（表格 / 趋势图 / 波形曲线）
   const dataBlocks = msg.blocks.filter((b) => isDataResult(b));
 
   const answerText = msg.streaming ? msg.streamingContent || '' : msg.content || '';
-  // 摘出最终回答里的 A2UI 命令 JSON 码块，渲染为结构化卡片，避免纯文本 JSON
   const { text: cleanAnswer, cards: a2uiCards } = useMemo(() => splitA2UIJsonBlocks(answerText), [answerText]);
 
   const phase = msg.phase ? phaseMeta(msg.phase, token) : null;
@@ -569,7 +559,6 @@ function MessageItem({ msg, showProcess, onApprove, onApproveAndTrust }: Message
                 />
               );
             }
-            // error
             return (
               <div key={b.id} className="cp-error">
                 <AlertTriangle size={14} style={{ marginTop: 2 }} />
