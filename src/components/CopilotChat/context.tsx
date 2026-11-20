@@ -4,22 +4,19 @@ import enUS from '@/locales/en-US';
 
 export type CopilotLocale = 'zh-CN' | 'en-US';
 
-export type TokenGetter = () => string | undefined;
-
 export interface CopilotRuntimeConfig {
   tenantId: string;
   tenantName?: string;
-  getToken: TokenGetter;
-  onUnauthorized?: () => void;
   baseUrl: string;
   locale: CopilotLocale;
+  /** 默认全局 fetch；宿主可传统一拦截器。 */
+  fetch: typeof fetch;
 }
 
 export interface CopilotRuntime extends CopilotRuntimeConfig {
   t: (id: string, vars?: Record<string, string | number>) => string;
   isZh: boolean;
   client: any;
-  authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
 
 const messages = {

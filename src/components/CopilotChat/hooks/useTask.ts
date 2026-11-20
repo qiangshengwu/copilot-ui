@@ -21,7 +21,7 @@ interface Options {
  * - AbortController 同时控制 POST /task 与 GET /stream。
  */
 export function useTask({chat, convs}: Options) {
-    const {tenantId, client, authFetch, baseUrl, locale} = useCopilot();
+    const {tenantId, client, fetch: requestFetch, baseUrl, locale} = useCopilot();
     const T = (zh: string, en: string) => (locale === 'zh-CN' ? zh : en);
     const taskIdRef = useRef<string | null>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -425,7 +425,7 @@ export function useTask({chat, convs}: Options) {
 
                 let j: { state?: string; final_answer?: string; error?: string };
                 try {
-                    const resp = await authFetch(`${baseUrl}/${tenantId}/copilot/task/${encodeURIComponent(taskId)}`, {
+                    const resp = await requestFetch(`${baseUrl}/${tenantId}/copilot/task/${encodeURIComponent(taskId)}`, {
                         headers: {Accept: 'application/json'},
                         signal,
                     });
@@ -570,7 +570,7 @@ export function useTask({chat, convs}: Options) {
                 taskIdRef.current = taskId;
 
                 // 2. 订阅 SSE 流式端点（订阅后后端启动任务，事件不丢）
-                const streamResp = await authFetch(
+                const streamResp = await requestFetch(
                     `${baseUrl}/${tenantId}/copilot/task/${encodeURIComponent(taskId)}/stream`,
                     {
                         headers: {Accept: 'text/event-stream'},

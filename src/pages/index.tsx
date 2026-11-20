@@ -3,13 +3,12 @@ import zhCN from 'antd/locale/zh_CN';
 import { useModel } from '@umijs/max';
 import LoginGate from '@/components/LoginGate';
 import CopilotChat from '@/components/CopilotChat';
-import { delLogin, getLogin } from '@/utils/token';
-import { AUTH_UNAUTHORIZED_EVENT } from '@/services/http';
+import { authFetch } from '@/services/http';
 import type { GetTenantQuery } from '@/graphql/generated/graphql';
 
 /**
  * copilot-ui 演示页：真实项目应直接在业务页面渲染 <CopilotChat />。
- * 登录、租户选择由宿主负责，组件只接收 tenantId / token。
+ * 登录、租户选择由宿主负责；组件只接收 tenantId，鉴权由宿主 fetch 拦截器处理。
  */
 export default function HomePage() {
   const { initialState } = useModel('@@initialState') as {
@@ -25,11 +24,7 @@ export default function HomePage() {
             <CopilotChat
               tenantId={tenant.id}
               tenantName={tenant.name}
-              getToken={() => getLogin()?.token}
-              onUnauthorized={() => {
-                delLogin();
-                window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
-              }}
+              fetch={authFetch}
             />
           ) : null}
         </div>

@@ -20,9 +20,8 @@ import {
   useCopilot,
   type CopilotLocale,
   type CopilotRuntime,
-  type TokenGetter,
 } from './context';
-import { createAuthFetch, createCopilotClient } from './request';
+import { createCopilotClient } from './request';
 import { useCopilotStyles } from './styles';
 
 export interface CopilotChatProps {
@@ -30,10 +29,8 @@ export interface CopilotChatProps {
   tenantId: string;
   /** 侧栏底部展示的租户名称。 */
   tenantName?: string;
-  /** 宿主提供 token；组件不读写 localStorage。 */
-  getToken?: TokenGetter;
-  /** 401 时由宿主处理（跳登录页等）。 */
-  onUnauthorized?: () => void;
+  /** 可选：宿主统一的 fetch 拦截器；默认使用全局 fetch。 */
+  fetch?: typeof fetch;
   /** API 前缀，例如 https://host/api；默认同源。 */
   baseUrl?: string;
   locale?: CopilotLocale;
@@ -51,8 +48,7 @@ export interface CopilotChatProps {
 export default function CopilotChat({
   tenantId,
   tenantName,
-  getToken,
-  onUnauthorized,
+  fetch: fetchImpl,
   baseUrl = '',
   locale = 'zh-CN',
   height = '100%',
@@ -64,15 +60,13 @@ export default function CopilotChat({
   onConversationChange,
 }: CopilotChatProps) {
   const normalizedBaseUrl = (baseUrl || '').replace(/\/+$/, '');
-  const tokenGetter = getToken ?? (() => undefined);
-
-  const authFetch = useMemo(
-    () => createAuthFetch(tokenGetter, onUnauthorized),
-    [tokenGetter, onUnauthorized],
+  const resolvedFetch = useMemo(
+    () => fetchImpl ?? globalThis.fetch.bind(globalThis),
+    [fetchImpl],
   );
   const client = useMemo(
-    () => createCopilotClient(normalizedBaseUrl, authFetch),
-    [normalizedBaseUrl, authFetch],
+    () => createCopilotClient(normalizedBaseUrl, resolvedFetch),
+    [normalizedBaseUrl, resolvedFetch],
   );
   const t = useMemo(
     () => (id: string, vars?: Record<string, string | number>) => translate(locale, id, vars),
@@ -83,16 +77,14 @@ export default function CopilotChat({
     () => ({
       tenantId,
       tenantName,
-      getToken: tokenGetter,
-      onUnauthorized,
       baseUrl: normalizedBaseUrl,
       locale,
       t,
       isZh: locale === 'zh-CN',
       client,
-      authFetch,
+      fetch: resolvedFetch,
     }),
-    [authFetch, client, locale, normalizedBaseUrl, onUnauthorized, t, tenantId, tenantName, tokenGetter],
+    [client, locale, normalizedBaseUrl, resolvedFetch, t, tenantId, tenantName],
   );
 
   const qc = useMemo(

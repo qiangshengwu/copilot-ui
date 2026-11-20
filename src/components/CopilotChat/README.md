@@ -9,17 +9,12 @@ import CopilotChat from '@/components/CopilotChat';
 
 export default function WorkspacePage() {
   const tenant = useCurrentTenant();
-  const token = useAuthToken();
 
   return (
     <div style={{ height: 'calc(100vh - 64px)' }}>
       <CopilotChat
         tenantId={tenant.id}
         tenantName={tenant.name}
-        getToken={() => token}
-        onUnauthorized={() => {
-          // 跳登录/刷新 token
-        }}
         baseUrl=""        // 同源；或 https://host/api
         locale="zh-CN"
         height="100%"
@@ -35,8 +30,7 @@ export default function WorkspacePage() {
 | --- | --- | --- |
 | `tenantId` | `string` | 必填，API 路径为 `/{tenantId}/copilot/...` |
 | `tenantName` | `string` | 侧栏底部展示 |
-| `getToken` | `() => string \| undefined` | 每次请求读取 token，组件不读写 localStorage |
-| `onUnauthorized` | `() => void` | 401 回调，由宿主跳登录或刷新 token |
+| `fetch` | `typeof fetch` | 可选，宿主统一的 fetch 拦截器；默认全局 fetch |
 | `baseUrl` | `string` | API 前缀，默认同源 |
 | `locale` | `'zh-CN' \| 'en-US'` | 组件文案与 antd locale |
 | `height` | `number \| string` | 默认 `100%`，宿主容器必须有高度 |
@@ -85,4 +79,4 @@ POST                     /{tenantId}/copilot/task/approve
 DELETE                   /{tenantId}/copilot/task/{id}
 ```
 
-SSE 使用 `Authorization: Bearer <getToken()>`。
+鉴权、代理与 401 刷新由宿主统一处理；组件只调用 `fetch`。
