@@ -34,7 +34,9 @@ export async function authFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   const login = getLogin();
-  const headers = new Headers(init.headers);
+  // 兼容 openapi-fetch 0.17 传入 Request 的情况：保留 Request 上已有的头
+  const headers = new Headers(input instanceof Request ? input.headers : undefined);
+  new Headers(init.headers).forEach((value, key) => headers.set(key, value));
   if (login?.token && !tokenExpired(login.token)) {
     headers.set('Authorization', `Bearer ${login.token}`);
   }

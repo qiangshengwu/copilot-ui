@@ -7,12 +7,26 @@ import type { paths } from '@/types/copilot';
  *
  * 依赖 openapi-fetch 0.17.0，方法名为大写：GET/POST/PATCH/DELETE。
  */
+function preserveRequestHeaders(fetchImpl: typeof fetch): typeof fetch {
+  return (input, init) => {
+    // openapi-fetch 0.17 会把参数组装成 Request 后再调用 fetch；
+    // 部分宿主拦截器只读取 init.headers，容易把 Request 上的
+    // Content-Type 丢掉，导致 POST 415。这里统一合并后再交给宿主。
+    if (input instanceof Request) {
+      const headers = new Headers(input.headers);
+      new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+      return fetchImpl(input, {...init, headers});
+    }
+    return fetchImpl(input, init);
+  };
+}
+
 export function createCopilotClient(
   baseUrl: string,
   fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis),
 ): ReturnType<typeof createClient<paths>> {
   return createClient<paths>({
     ...(baseUrl ? { baseUrl } : {}),
-    fetch: fetchImpl,
+    fetch: preserveRequestHeaders(fetchImpl),
   });
 }
