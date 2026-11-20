@@ -312,14 +312,11 @@ export default function ConversationSidebar({
                 style={{
                   height: 50,
                   borderRadius: 11,
-                  background: `linear-gradient(90deg, ${token.colorFillTertiary} 25%, ${token.colorFill} 37%, ${token.colorFillTertiary} 63%)`,
-                  backgroundSize: '400% 100%',
-                  animation: 'cpShimmer 1.4s ease infinite',
+                  background: token.colorFillTertiary,
                   opacity: 1 - i * 0.15,
                 }}
               />
             ))}
-            <style>{`@keyframes cpShimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}`}</style>
           </div>
         ) : filtered.length === 0 ? (
           <div className="cp-sidebar-empty">

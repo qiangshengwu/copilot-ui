@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ConfigProvider, Drawer } from 'antd';
+import { ConfigProvider, Drawer, theme } from 'antd';
 import { XProvider } from '@ant-design/x';
 import { ArrowDown } from 'lucide-react';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import { getLocale, useIntl } from '@umijs/max';
+import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { useChatState } from '@/hooks/useChatState';
 import { useConversations } from '@/hooks/useConversations';
 import { useTask } from '@/hooks/useTask';
@@ -15,6 +16,7 @@ import Welcome from '@/components/Welcome';
 import Composer from '@/components/Composer';
 import LoginGate from '@/components/LoginGate';
 import { applyTheme, buildTheme, getInitialTheme, type ThemeMode } from '@/theme';
+import { copilotStyles } from '@/styles/copilotStyles';
 
 export default function HomePage() {
   const chat = useChatState();
@@ -91,6 +93,10 @@ export default function HomePage() {
   const headerTitle = activeConversation?.title || fm('copilot.app.console');
   const antdLocale = getLocale().toLowerCase().startsWith('zh') ? zhCN : enUS;
   const themeConfig = useMemo(() => buildTheme(themeMode), [themeMode]);
+  // 页面级 hook 在 ConfigProvider 之外执行，用当前主题配置显式生成 token，
+  // 保证 useEmotionCss 的颜色/圆角/阴影与页面实际主题一致。
+  const designToken = useMemo(() => theme.getDesignToken(themeConfig), [themeConfig]);
+  const appCss = useEmotionCss(() => copilotStyles({ token: designToken }));
 
   const sidebar = (
     <ConversationSidebar
@@ -117,7 +123,8 @@ export default function HomePage() {
   return (
     <ConfigProvider locale={antdLocale} theme={themeConfig}>
       <XProvider locale={antdLocale} theme={themeConfig}>
-        <LoginGate>
+        <div className={appCss}>
+          <LoginGate>
           <div className="copilot-shell">
             <aside className="copilot-sidebar">{sidebar}</aside>
 
@@ -127,6 +134,7 @@ export default function HomePage() {
               placement="left"
               size={300}
               closable={false}
+              rootClassName={appCss}
               styles={{ body: { padding: 0, background: 'var(--cp-surface)' } }}
             >
               {mobileOpen ? sidebar : null}
@@ -182,7 +190,8 @@ export default function HomePage() {
               </div>
             </main>
           </div>
-        </LoginGate>
+          </LoginGate>
+        </div>
       </XProvider>
     </ConfigProvider>
   );

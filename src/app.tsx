@@ -11,7 +11,13 @@ import {
 } from '@/graphql/generated/graphql';
 
 // 在 React 首次渲染前应用主题，避免深色模式闪白
-if (typeof document !== 'undefined') applyTheme(getInitialTheme());
+if (typeof document !== 'undefined') {
+  applyTheme(getInitialTheme());
+  document.documentElement.style.height = '100%';
+  document.body.style.height = '100%';
+  document.body.style.margin = '0';
+  document.body.style.overflow = 'hidden';
+}
 
 /**
  * 启动初始化：只读取已有登录态并加载默认租户；不再内置任何账号密码。
